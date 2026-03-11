@@ -31,6 +31,11 @@ const CONFIG = {
     CAM_OFFSET: { x: 0, y: 3, z: 6 },
     CAM_LOOK_AHEAD: 10,
     
+    // Powerup durations (seconds)
+    POWERUP_DURATION: 10,
+    DARK_MATTER_SPEED_MULTI: 1.5,
+    GRAVITY_LIFT: 1.5, // multiplier to jump duration/force
+
     // Visual
     RIM_LIGHT_COUNT: 10,
     STAR_COUNT: 3000,

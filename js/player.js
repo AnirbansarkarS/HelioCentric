@@ -161,7 +161,7 @@ const Player = {
         if (GameState.lives <= 0) {
             GameState.isGameOver = true;
             UI.showGameOver();
-            SaveSystem.updateHighScore(GameState.score, GameState.coins);
+            SaveSystem.updateHighScore(GameState.score, GameState.starFragments, GameState.energyOrbs, GameState.alienArtifacts);
             return true; // Game over
         }
         return false;

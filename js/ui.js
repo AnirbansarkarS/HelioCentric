@@ -398,8 +398,8 @@ const UI = {
                     <div class="hud-stat hud-score">
                         <span id="hud-score">0</span> pts
                     </div>
-                    <div class="hud-stat hud-coins">
-                        🪙 <span id="hud-coins">0</span>
+                    <div class="hud-stat hud-currencies">
+                        ⭐ <span id="hud-fragments">0</span> | 🔮 <span id="hud-orbs">0</span> | 🔺 <span id="hud-artifacts">0</span>
                     </div>
                     <div class="hud-stat hud-lives" id="hud-lives">
                         <span class="life-icon">💚</span>
@@ -428,9 +428,11 @@ const UI = {
         this.hudOverlay.style.display = 'none';
     },
     
+    showPowerupMessage(type) { const msg = document.createElement('div'); msg.className = 'powerup-msg'; msg.textContent = type.toUpperCase() + ' ACTIVATED!'; msg.style.position = 'absolute'; msg.style.top = '20%'; msg.style.left = '50%'; msg.style.transform = 'translateX(-50%)'; msg.style.color = '#fff'; msg.style.fontSize = '24px'; msg.style.fontWeight = 'bold'; msg.style.textShadow = '0 0 10px #ff0'; document.body.appendChild(msg); setTimeout(() => msg.remove(), 2000); },
+
     updateHUD() {
         document.getElementById('hud-score').textContent = GameState.score;
-        document.getElementById('hud-coins').textContent = GameState.coins;
+        document.getElementById('hud-fragments').textContent = GameState.starFragments; document.getElementById('hud-orbs').textContent = GameState.energyOrbs; document.getElementById('hud-artifacts').textContent = GameState.alienArtifacts;
         
         // Lives
         const livesContainer = document.getElementById('hud-lives');
@@ -463,7 +465,7 @@ const UI = {
                 <h1 class="gameover-title">GAME OVER</h1>
                 <div class="gameover-stats">
                     <p>Score: <span id="go-score">0</span></p>
-                    <p>Coins: <span id="go-coins">0</span></p>
+                    <p>Fragments: <span id="go-fragments">0</span> | Orbs: <span id="go-orbs">0</span> | Artifacts: <span id="go-artifacts">0</span></p>
                     <p>Zone Reached: <span id="go-zone">Pluto</span></p>
                 </div>
                 <div class="gameover-btns">
@@ -493,7 +495,7 @@ const UI = {
     
     showGameOver() {
         document.getElementById('go-score').textContent = GameState.score;
-        document.getElementById('go-coins').textContent = GameState.coins;
+        document.getElementById('go-fragments').textContent = GameState.starFragments; document.getElementById('go-orbs').textContent = GameState.energyOrbs; document.getElementById('go-artifacts').textContent = GameState.alienArtifacts;
         document.getElementById('go-zone').textContent = GameState.getCurrentZone().name;
         
         // Update high score

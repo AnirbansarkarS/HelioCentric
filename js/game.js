@@ -180,6 +180,10 @@ const Game = {
         // Score
         GameState.score = Math.floor(dist);
 
+        // Update Powerups
+        ['shield', 'darkMatter', 'gravity', 'warp', 'magnet'].forEach(p => { if (GameState[p + 'Timer'] > 0) GameState[p + 'Timer'] -= delta; });
+        if (GameState.shieldTimer <= 0) GameState.shieldActive = false;
+
         // Update player (handles forward motion)
         Player.update(delta);
         const playerPos = Player.getPosition().clone();
@@ -240,20 +244,56 @@ const Game = {
     },
     
     handleCollision(collision, playerPos) {
-        if (collision.type === 'coin') {
-            GameState.coins++;
+        if (collision.isCollectible) {
             Particles.spawnCoinCollect(playerPos);
+            
+            switch(collision.type) {
+                case 'starFragment':
+                    GameState.starFragments++;
+                    // Maybe add a bit of score per fragment
+                    GameState.score += 10;
+                    break;
+                case 'energyOrb':
+                    GameState.energyOrbs++;
+                    GameState.score += 50;
+                    break;
+                case 'alienArtifact':
+                    GameState.alienArtifacts++;
+                    GameState.score += 150;
+                    break;
+                case 'powerup':
+                    // Activate powerup timer
+                    GameState[`${collision.powerupType}Timer`] = CONFIG.POWERUP_DURATION;
+                    if (collision.powerupType === 'shield') {
+                        GameState.shieldActive = true;
+                    }
+                    UI.showPowerupMessage(collision.powerupType);
+                    break;
+            }
         } else if (collision.type === 'obstacle') {
-            const gameOver = Player.takeDamage();
-            Particles.spawnDamageBurst(playerPos);
-            if (gameOver) {
-                this.gameOver();
+            if (GameState.shieldActive) {
+                // Break shield instead of taking damage
+                GameState.shieldActive = false;
+                GameState.shieldTimer = 0;
+                Particles.spawnDamageBurst(playerPos); // shield break particles
+            } else {
+                const gameOver = Player.takeDamage();
+                Particles.spawnDamageBurst(playerPos);
+                if (gameOver) {
+                    this.gameOver();
+                }
             }
         } else if (collision.type === 'hazard') {
-            // Hazards are instant kill
-            GameState.lives = 0;
-            Particles.spawnDamageBurst(playerPos);
-            this.gameOver();
+            if (GameState.shieldActive) {
+                GameState.shieldActive = false;
+                GameState.shieldTimer = 0;
+                Particles.spawnDamageBurst(playerPos);
+            } else {
+                // Hazards are instant kill unless shielded
+                GameState.lives = 0;
+                Particles.spawnDamageBurst(playerPos);
+                this.gameOver();
+            }
         }
     },
     

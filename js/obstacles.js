@@ -5,7 +5,7 @@
 const Obstacles = {
     scene: null,
     obstacles: [],
-    coins: [],
+    items: [],
     hazards: [],
     
     // Initialize
@@ -191,8 +191,25 @@ const Obstacles = {
         return group;
     },
     
-    // ── COIN ──
+    // ── OLD ALIAS FOR ZONE SPAWNER ──
     spawnCoin(x, z) {
+        // Randomly pick a collectible or powerup
+        const rand = Math.random();
+        if (rand < 0.05) { // 5% chance for a powerup
+            const powerups = ['shield', 'darkMatter', 'gravity', 'warp', 'magnet'];
+            const type = powerups[Math.floor(Math.random() * powerups.length)];
+            return this.spawnPowerup(x, z, type);
+        } else if (rand < 0.15) { // 10% chance for an alien artifact
+            return this.spawnAlienArtifact(x, z);
+        } else if (rand < 0.40) { // 25% chance for an energy orb
+            return this.spawnEnergyOrb(x, z);
+        } else { // 60% chance for a star fragment
+            return this.spawnStarFragment(x, z);
+        }
+    },
+
+    // ── STAR FRAGMENT (formerly Coin) ──
+    spawnStarFragment(x, z) {
         const group = new THREE.Group();
         
         const geo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
@@ -217,10 +234,117 @@ const Obstacles = {
         group.add(sparkle);
         
         group.position.set(x, 1.2, z);
-        group.userData.type = 'coin';
+        group.userData.type = 'starFragment';
+        group.userData.isCollectible = true;
         
         this.scene.add(group);
-        this.coins.push(group);
+        this.items.push(group);
+        return group;
+    },
+
+    // ── ENERGY ORB ──
+    spawnEnergyOrb(x, z) {
+        const group = new THREE.Group();
+        
+        const geo = new THREE.SphereGeometry(0.5, 16, 16);
+        const mat = new THREE.MeshPhongMaterial({
+            color: 0x44ffaa,
+            emissive: 0x11aa55,
+            transparent: true,
+            opacity: 0.8,
+            shininess: 100
+        });
+        const orb = new THREE.Mesh(geo, mat);
+        group.add(orb);
+        
+        const haloGeo = new THREE.SphereGeometry(0.7, 16, 16);
+        const haloMat = new THREE.MeshBasicMaterial({
+            color: 0x88ffcc,
+            transparent: true,
+            opacity: 0.3,
+            blending: THREE.AdditiveBlending
+        });
+        const halo = new THREE.Mesh(haloGeo, haloMat);
+        group.add(halo);
+
+        group.position.set(x, 1.2, z);
+        group.userData.type = 'energyOrb';
+        group.userData.isCollectible = true;
+        
+        this.scene.add(group);
+        this.items.push(group);
+        return group;
+    },
+
+    // ── ALIEN ARTIFACT ──
+    spawnAlienArtifact(x, z) {
+        const group = new THREE.Group();
+        
+        const geo = new THREE.OctahedronGeometry(0.5);
+        const mat = new THREE.MeshPhongMaterial({
+            color: 0xcc44ff,
+            emissive: 0x441188,
+            flatShading: true,
+            shininess: 90
+        });
+        const artifact = new THREE.Mesh(geo, mat);
+        group.add(artifact);
+        
+        group.position.set(x, 1.2, z);
+        group.userData.type = 'alienArtifact';
+        group.userData.isCollectible = true;
+        
+        this.scene.add(group);
+        this.items.push(group);
+        return group;
+    },
+
+    // ── POWER-UP ──
+    spawnPowerup(x, z, powerupType) {
+        const group = new THREE.Group();
+        
+        // Base diamond shape
+        const geo = new THREE.DodecahedronGeometry(0.6);
+        
+        let color, emissive;
+        switch(powerupType) {
+            case 'shield': color = 0x4488ff; emissive = 0x1133aa; break;
+            case 'darkMatter': color = 0x110033; emissive = 0x330066; break;
+            case 'gravity': color = 0x44ff44; emissive = 0x11aa11; break;
+            case 'warp': color = 0xff44aa; emissive = 0xaa1166; break;
+            case 'magnet': color = 0xff4444; emissive = 0xaa1111; break;
+            default: color = 0xffffff; emissive = 0xaaaaaa;
+        }
+
+        const mat = new THREE.MeshPhongMaterial({
+            color: color,
+            emissive: emissive,
+            flatShading: true,
+            shininess: 100
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        group.add(mesh);
+        
+        // Inner spinning ring
+        const ringGeo = new THREE.RingGeometry(0.8, 0.9, 16);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: color,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.8
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2;
+        group.add(ring);
+        group.userData.ring = ring;
+
+        group.position.set(x, 1.5, z);
+        group.userData.type = 'powerup';
+        group.userData.powerupType = powerupType;
+        group.userData.isCollectible = true;
+        
+        this.scene.add(group);
+        this.items.push(group);
         return group;
     },
     
@@ -523,21 +647,21 @@ const Obstacles = {
         }
         
         // Update coins
-        for (let i = this.coins.length - 1; i >= 0; i--) {
-            const coin = this.coins[i];
+        for (let i = this.items.length - 1; i >= 0; i--) {
+            const coin = this.items[i];
             coin.rotation.y += delta * 3;
             
             // Collection detection
             if (this.checkCollision(coin, playerPos, 1.2)) {
                 this.scene.remove(coin);
-                this.coins.splice(i, 1);
+                this.items.splice(i, 1);
                 return { type: 'coin' };
             }
             
             // Cleanup
             if (coin.position.z > playerPos.z + 30) {
                 this.scene.remove(coin);
-                this.coins.splice(i, 1);
+                this.items.splice(i, 1);
             }
         }
         
@@ -562,8 +686,8 @@ const Obstacles = {
         this.hazards.forEach(h => this.scene.remove(h));
         this.hazards = [];
         
-        this.coins.forEach(c => this.scene.remove(c));
-        this.coins = [];
+        this.items.forEach(c => this.scene.remove(c));
+        this.items = [];
     }
 };
 
