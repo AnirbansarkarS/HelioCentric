@@ -8,9 +8,346 @@ const Obstacles = {
     items: [],
     hazards: [],
     
+    // ═══════════════════════════════════════════════════
+    //  ADVANCED SPAWN ALGORITHM STATE
+    // ═══════════════════════════════════════════════════
+    patternHistory: [],       // last N safe-lane choices
+    lastSafeLane: 0,          // -1, 0, or 1
+    lastPatternType: '',      // 'single', 'double', 'corridor', 'gap', etc.
+    rowsSinceCollectible: 0,
+    rowsSinceHazard: 0,
+    rowsSincePowerup: 0,
+    comboCounter: 0,          // sequential rows with same safe lane
+    
+    // Constants for the algorithm
+    MAX_PATTERN_MEMORY: 8,
+    MAX_COMBO: 3,             // max consecutive same safe-lane
+    
     // Initialize
     init(scene) {
         this.scene = scene;
+        this.resetAlgorithm();
+    },
+    
+    resetAlgorithm() {
+        this.patternHistory = [];
+        this.lastSafeLane = 0;
+        this.lastPatternType = '';
+        this.rowsSinceCollectible = 0;
+        this.rowsSinceHazard = 0;
+        this.rowsSincePowerup = 0;
+        this.comboCounter = 0;
+    },
+    
+    // ═══════════════════════════════════════════════════
+    //  CORE ALGORITHM: spawnRow(z, zone, distance)
+    // ═══════════════════════════════════════════════════
+    spawnRow(z, zone, distance) {
+        // ── 1. DIFFICULTY SCALING ──
+        const difficulty = this.getDifficulty(distance);
+        
+        // ── 2. PICK SAFE LANE (anti-repeat) ──
+        const safeLane = this.pickSafeLane();
+        
+        // ── 3. SELECT PATTERN TYPE ──
+        const pattern = this.selectPattern(difficulty);
+        
+        // ── 4. EXECUTE PATTERN ──
+        this.executePattern(pattern, safeLane, z, zone, difficulty);
+        
+        // ── 5. SPAWN COLLECTIBLES IF DUE ──
+        this.maybeSpawnCollectibles(safeLane, z, difficulty);
+        
+        // ── 6. UPDATE HISTORY ──
+        this.recordPattern(safeLane, pattern);
+    },
+    
+    // ── DIFFICULTY CURVE ──
+    // Returns 0.0 (trivial) to 1.0 (maximum) based on distance
+    getDifficulty(distance) {
+        // Smooth S-curve: ramps slowly at first, accelerates mid-game, plateaus late
+        // Reaches ~0.5 at distance 4000 (Jupiter), ~0.85 at 8000 (Mercury)
+        const t = distance / 10000;
+        return Math.min(1.0, 3 * t * t - 2 * t * t * t); // smoothstep
+    },
+    
+    // ── SAFE LANE PICKER (anti-repeat) ──
+    pickSafeLane() {
+        const lanes = [-1, 0, 1];
+        
+        // If we've used the same safe lane too many times, force a change
+        if (this.comboCounter >= this.MAX_COMBO) {
+            const alternatives = lanes.filter(l => l !== this.lastSafeLane);
+            const pick = alternatives[Math.floor(Math.random() * alternatives.length)];
+            this.comboCounter = 1;
+            this.lastSafeLane = pick;
+            return pick;
+        }
+        
+        // Weight lanes: previous safe lane gets lower weight to encourage movement
+        const weights = lanes.map(l => {
+            if (l === this.lastSafeLane) return 0.25; // low chance to repeat
+            // Adjacent lanes to last safe get higher weight (natural flow)
+            if (Math.abs(l - this.lastSafeLane) === 1) return 0.5;
+            return 0.25; // opposite lane
+        });
+        
+        const totalW = weights.reduce((a, b) => a + b);
+        let r = Math.random() * totalW;
+        let pick = 0;
+        for (let i = 0; i < lanes.length; i++) {
+            r -= weights[i];
+            if (r <= 0) { pick = lanes[i]; break; }
+        }
+        
+        if (pick === this.lastSafeLane) {
+            this.comboCounter++;
+        } else {
+            this.comboCounter = 1;
+        }
+        this.lastSafeLane = pick;
+        return pick;
+    },
+    
+    // ── PATTERN SELECTOR ──
+    // Choose obstacle layout based on difficulty and history
+    selectPattern(difficulty) {
+        // Available patterns with minimum difficulty thresholds
+        const patterns = [
+            { name: 'single',    minDiff: 0.0,  weight: 3.0 },  // 1 obstacle
+            { name: 'double',    minDiff: 0.1,  weight: 2.5 },  // 2 obstacles (1 safe lane)
+            { name: 'stagger',   minDiff: 0.2,  weight: 2.0 },  // 2 obstacles offset in Z
+            { name: 'corridor',  minDiff: 0.35, weight: 1.5 },  // 2 obstacles creating a corridor
+            { name: 'gauntlet',  minDiff: 0.5,  weight: 1.0 },  // dense section w/ tight gap
+            { name: 'hazardRow', minDiff: 0.4,  weight: 0.8 },  // includes a hazard
+        ];
+        
+        // Filter by current difficulty and avoid immediate repeats
+        const eligible = patterns.filter(p => {
+            if (difficulty < p.minDiff) return false;
+            if (p.name === this.lastPatternType && Math.random() < 0.7) return false;
+            return true;
+        });
+        
+        if (eligible.length === 0) return { name: 'single' };
+        
+        // Scale weights by how deep into difficulty we are past the threshold
+        const scaled = eligible.map(p => ({
+            ...p,
+            w: p.weight * (1 + (difficulty - p.minDiff) * 2)
+        }));
+        
+        const totalW = scaled.reduce((a, b) => a + b.w, 0);
+        let r = Math.random() * totalW;
+        for (const p of scaled) {
+            r -= p.w;
+            if (r <= 0) return p;
+        }
+        return scaled[scaled.length - 1];
+    },
+    
+    // ── PATTERN EXECUTOR ──
+    executePattern(pattern, safeLane, z, zone, difficulty) {
+        const lanes = [-1, 0, 1];
+        const dangerLanes = lanes.filter(l => l !== safeLane);
+        const zoneName = zone.name;
+        const zoneColor = zone.objColor;
+        
+        switch (pattern.name) {
+            case 'single': {
+                // One obstacle on a random danger lane
+                const lane = dangerLanes[Math.floor(Math.random() * dangerLanes.length)];
+                this.spawnZoneObstacle(zoneName, lane, z, zoneColor);
+                break;
+            }
+            
+            case 'double': {
+                // Both danger lanes blocked — player must use safe lane
+                dangerLanes.forEach(lane => {
+                    this.spawnZoneObstacle(zoneName, lane, z, zoneColor);
+                });
+                break;
+            }
+            
+            case 'stagger': {
+                // Two obstacles on danger lanes, offset in Z for a weaving feel
+                const first = dangerLanes[0];
+                const second = dangerLanes[1];
+                this.spawnZoneObstacle(zoneName, first, z, zoneColor);
+                this.spawnZoneObstacle(zoneName, second, z - 6, zoneColor);
+                break;
+            }
+            
+            case 'corridor': {
+                // Two obstacles creating a narrow corridor the player threads through
+                dangerLanes.forEach(lane => {
+                    this.spawnZoneObstacle(zoneName, lane, z, zoneColor);
+                });
+                // Add a trailing obstacle that closes behind
+                if (difficulty > 0.5 && Math.random() < difficulty * 0.5) {
+                    this.spawnZoneObstacle(zoneName, safeLane === 0 ? 
+                        (Math.random() < 0.5 ? -1 : 1) : 0, z - 8, zoneColor);
+                }
+                break;
+            }
+            
+            case 'gauntlet': {
+                // Dense section: staggered obstacles across multiple Z steps
+                const shuffled = [...lanes].sort(() => Math.random() - 0.5);
+                // First wall
+                dangerLanes.forEach(lane => {
+                    this.spawnZoneObstacle(zoneName, lane, z, zoneColor);
+                });
+                // Second wall (different safe lane) offset back
+                const secondSafe = dangerLanes[Math.floor(Math.random() * dangerLanes.length)];
+                const secondDanger = lanes.filter(l => l !== secondSafe);
+                secondDanger.forEach(lane => {
+                    this.spawnZoneObstacle(zoneName, lane, z - 10, zoneColor);
+                });
+                // Place collectible in the threading path
+                this.spawnCoin(secondSafe * CONFIG.LANE_WIDTH, z - 5);
+                this.rowsSinceCollectible = 0;
+                break;
+            }
+            
+            case 'hazardRow': {
+                // One hazard + one obstacle
+                this.rowsSinceHazard = 0;
+                const hazardLane = dangerLanes[Math.floor(Math.random() * dangerLanes.length)];
+                const obstLane = dangerLanes.find(l => l !== hazardLane) ?? hazardLane;
+                
+                this.spawnZoneHazard(zoneName, hazardLane, z);
+                if (obstLane !== hazardLane) {
+                    this.spawnZoneObstacle(zoneName, obstLane, z, zoneColor);
+                }
+                break;
+            }
+        }
+    },
+    
+    // ── COLLECTIBLE/POWERUP SCHEDULER ──
+    maybeSpawnCollectibles(safeLane, z, difficulty) {
+        this.rowsSinceCollectible++;
+        this.rowsSinceHazard++;
+        this.rowsSincePowerup++;
+        
+        // Guaranteed collectible every 2-4 rows (tighter at high difficulty)
+        const collectibleInterval = Math.max(2, Math.floor(4 - difficulty * 1.5));
+        
+        if (this.rowsSinceCollectible >= collectibleInterval) {
+            this.rowsSinceCollectible = 0;
+            const zone = GameState.getCurrentZone();
+            const zoneName = zone.name;
+            const rand = Math.random();
+            
+            // ── TIER SPAWN BEHAVIORS ──
+            
+            // Planet Relic: super rare (~2% chance, only after difficulty 0.3)
+            if (rand < 0.02 && difficulty > 0.3) {
+                this.spawnPlanetRelic(safeLane * CONFIG.LANE_WIDTH, z - 3, zoneName);
+            }
+            // Solar Energy Cell: Mercury/Sun zones only (~8% chance there)
+            else if (rand < 0.10 && (zoneName === 'Mercury' || zoneName === 'Sun')) {
+                this.spawnSolarEnergyCell(safeLane * CONFIG.LANE_WIDTH, z - 3);
+            }
+            // Alien Tech Part: rare, spawn between obstacle lanes (guarded)
+            else if (rand < 0.15 && difficulty > 0.2) {
+                // Place on a danger lane (not safe lane) — player must weave to get it
+                const lanes = [-1, 0, 1];
+                const dangerLanes = lanes.filter(l => l !== safeLane);
+                const guardLane = dangerLanes[Math.floor(Math.random() * dangerLanes.length)];
+                this.spawnAlienTechPart(guardLane * CONFIG.LANE_WIDTH, z - 5);
+            }
+            // Dark Matter Shard: clusters of 2-3 at elevated Y
+            else if (rand < 0.30 && difficulty > 0.15) {
+                const clusterSize = 2 + (Math.random() < 0.3 ? 1 : 0);
+                for (let c = 0; c < clusterSize; c++) {
+                    const cx = safeLane * CONFIG.LANE_WIDTH + (Math.random() - 0.5) * 1.5;
+                    this.spawnDarkMatterShard(cx, z - 3 - c * 2.5);
+                }
+            }
+            // Comet Crystal: diagonal trail across lanes (3-5 crystals)
+            else if (rand < 0.50) {
+                const trailLen = 3 + Math.floor(Math.random() * 3); // 3-5
+                const startLane = safeLane;
+                const direction = (startLane <= 0) ? 1 : -1; // move towards open lanes
+                for (let t = 0; t < trailLen; t++) {
+                    const laneT = Math.max(-1, Math.min(1, startLane + direction * (t % 3 === 2 ? 1 : 0)));
+                    const tx = (startLane + direction * Math.floor(t / 2) * 0.5);
+                    const clampedX = Math.max(-1, Math.min(1, tx)) * CONFIG.LANE_WIDTH;
+                    this.spawnCometCrystal(clampedX, z - 3 - t * 3);
+                }
+            }
+            // Star Fragment: lines of 3-5 in safe lane (most common)
+            else {
+                const lineLen = 3 + Math.floor(Math.random() * 3); // 3-5
+                for (let l = 0; l < lineLen; l++) {
+                    this.spawnStarFragment(safeLane * CONFIG.LANE_WIDTH, z - 3 - l * 2);
+                }
+            }
+        }
+        
+        // Powerups: rare, scaling slightly with difficulty (every 12-25 rows)
+        const powerupInterval = Math.max(12, Math.floor(25 - difficulty * 10));
+        if (this.rowsSincePowerup >= powerupInterval) {
+            const powerups = ['shield', 'darkMatter', 'gravity', 'warp', 'magnet'];
+            const type = powerups[Math.floor(Math.random() * powerups.length)];
+            this.spawnPowerup(safeLane * CONFIG.LANE_WIDTH, z - 4, type);
+            this.rowsSincePowerup = 0;
+        }
+    },
+    
+    // ── ZONE-THEMED OBSTACLE DISPATCH ──
+    spawnZoneObstacle(zoneName, lane, z, fallbackColor) {
+        switch (zoneName) {
+            case 'Pluto':
+                return this.spawnIcyAsteroid(lane, z, 0.9 + Math.random() * 0.5);
+            case 'Neptune':
+                return this.spawnStandardObstacle(lane, z, 0x2266ff);
+            case 'Uranus':
+                return this.spawnStandardObstacle(lane, z, 0x44dddd);
+            case 'Saturn':
+                return this.spawnStandardObstacle(lane, z, 0xddaa55);
+            case 'Jupiter':
+                return this.spawnStandardObstacle(lane, z, 0xffaa88, 1.0 + Math.random() * 0.4);
+            case 'Mars':
+                return this.spawnStandardObstacle(lane, z, 0xff3300);
+            case 'Earth':
+                return Math.random() < 0.5 ? 
+                    this.spawnStandardObstacle(lane, z, 0x888888) :
+                    this.spawnSatelliteDebris(lane, z);
+            case 'Venus':
+                return this.spawnStandardObstacle(lane, z, 0xffcc44);
+            case 'Mercury':
+                return this.spawnHeatRock(lane, z);
+            case 'Sun':
+                return this.spawnSolarDebris(lane, z);
+            default:
+                return this.spawnStandardObstacle(lane, z, fallbackColor);
+        }
+    },
+    
+    // ── ZONE-THEMED HAZARD DISPATCH ──
+    spawnZoneHazard(zoneName, lane, z) {
+        switch (zoneName) {
+            case 'Venus':
+                return Math.random() < 0.5 ? 
+                    this.spawnAcidCloud(lane, z) : this.spawnHazard(lane, z);
+            case 'Sun':
+                return Math.random() < 0.5 ? 
+                    this.spawnSolarFlareHazard(lane, z) : this.spawnHazard(lane, z);
+            default:
+                return this.spawnHazard(lane, z);
+        }
+    },
+    
+    // ── HISTORY TRACKING ──
+    recordPattern(safeLane, pattern) {
+        this.patternHistory.push({ safeLane, pattern: pattern.name });
+        if (this.patternHistory.length > this.MAX_PATTERN_MEMORY) {
+            this.patternHistory.shift();
+        }
+        this.lastPatternType = pattern.name;
     },
     
     // ── ASTEROID GEOMETRY GENERATOR ──
@@ -191,108 +528,390 @@ const Obstacles = {
         return group;
     },
     
-    // ── OLD ALIAS FOR ZONE SPAWNER ──
-    spawnCoin(x, z) {
-        // Randomly pick a collectible or powerup
-        const rand = Math.random();
-        if (rand < 0.05) { // 5% chance for a powerup
-            const powerups = ['shield', 'darkMatter', 'gravity', 'warp', 'magnet'];
-            const type = powerups[Math.floor(Math.random() * powerups.length)];
-            return this.spawnPowerup(x, z, type);
-        } else if (rand < 0.15) { // 10% chance for an alien artifact
-            return this.spawnAlienArtifact(x, z);
-        } else if (rand < 0.40) { // 25% chance for an energy orb
-            return this.spawnEnergyOrb(x, z);
-        } else { // 60% chance for a star fragment
-            return this.spawnStarFragment(x, z);
+    // ── COLLECTIBLE DISPATCHER ──
+    // Picks a collectible tier based on rarity weights, zone, and difficulty
+    spawnCoin(x, z, forceType) {
+        if (forceType) {
+            return this._spawnCollectibleByType(forceType, x, z);
+        }
+        
+        // Build weighted pool based on zone
+        const zone = GameState.getCurrentZone();
+        const zoneName = zone.name;
+        const tiers = CONFIG.COLLECTIBLES;
+        const pool = [];
+        
+        for (const [key, tier] of Object.entries(tiers)) {
+            // Solar Energy Cells only in Mercury/Sun
+            if (key === 'solarEnergyCell' && zoneName !== 'Mercury' && zoneName !== 'Sun') continue;
+            // Planet Relics are spawned separately via dedicated logic
+            if (key === 'planetRelic') continue;
+            pool.push({ type: key, weight: tier.rarity });
+        }
+        
+        // Weighted random pick
+        const totalW = pool.reduce((s, p) => s + p.weight, 0);
+        let r = Math.random() * totalW;
+        let picked = pool[0].type;
+        for (const p of pool) {
+            r -= p.weight;
+            if (r <= 0) { picked = p.type; break; }
+        }
+        
+        return this._spawnCollectibleByType(picked, x, z);
+    },
+    
+    _spawnCollectibleByType(type, x, z) {
+        switch (type) {
+            case 'starFragment':    return this.spawnStarFragment(x, z);
+            case 'darkMatterShard': return this.spawnDarkMatterShard(x, z);
+            case 'cometCrystal':    return this.spawnCometCrystal(x, z);
+            case 'alienTechPart':   return this.spawnAlienTechPart(x, z);
+            case 'solarEnergyCell': return this.spawnSolarEnergyCell(x, z);
+            case 'planetRelic':     return this.spawnPlanetRelic(x, z);
+            default:                return this.spawnStarFragment(x, z);
         }
     },
 
-    // ── STAR FRAGMENT (formerly Coin) ──
+    // ═══════════════════════════════════════════════════════
+    //  TIER 1 — STAR FRAGMENT  ⭐  (+1 coin, common)
+    // ═══════════════════════════════════════════════════════
     spawnStarFragment(x, z) {
         const group = new THREE.Group();
         
-        const geo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
+        // 5-pointed star shape using extruded shape
+        const starShape = new THREE.Shape();
+        const outerR = 0.35, innerR = 0.15, points = 5;
+        for (let i = 0; i < points * 2; i++) {
+            const r = i % 2 === 0 ? outerR : innerR;
+            const angle = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+            const px = Math.cos(angle) * r;
+            const py = Math.sin(angle) * r;
+            if (i === 0) starShape.moveTo(px, py);
+            else starShape.lineTo(px, py);
+        }
+        starShape.closePath();
+        
+        const extrudeSettings = { depth: 0.1, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 1 };
+        const geo = new THREE.ExtrudeGeometry(starShape, extrudeSettings);
         const mat = new THREE.MeshPhongMaterial({
             color: 0xffdd44,
-            emissive: 0x553300,
-            shininess: 80
+            emissive: 0x886611,
+            shininess: 100
         });
-        const coin = new THREE.Mesh(geo, mat);
-        coin.rotation.z = Math.PI / 2;
-        group.add(coin);
+        const star = new THREE.Mesh(geo, mat);
+        star.rotation.x = Math.PI / 2;
+        group.add(star);
         
-        // Sparkle
-        const sparkleGeo = new THREE.SphereGeometry(0.15, 8, 8);
+        // Sparkle glow
+        const sparkleGeo = new THREE.SphereGeometry(0.12, 8, 8);
         const sparkleMat = new THREE.MeshBasicMaterial({
-            color: 0xffffaa,
+            color: 0xffffcc,
             transparent: true,
-            opacity: 0.7
+            opacity: 0.6
         });
         const sparkle = new THREE.Mesh(sparkleGeo, sparkleMat);
-        sparkle.position.set(0.15, 0.15, 0);
+        sparkle.position.set(0.2, 0.2, 0);
         group.add(sparkle);
         
         group.position.set(x, 1.2, z);
-        group.userData.type = 'starFragment';
-        group.userData.isCollectible = true;
+        group.userData = {
+            type: 'starFragment',
+            isCollectible: true,
+            coinValue: CONFIG.COLLECTIBLES.starFragment.coinValue,
+            scoreValue: CONFIG.COLLECTIBLES.starFragment.scoreValue,
+            baseY: 1.2
+        };
         
         this.scene.add(group);
         this.items.push(group);
         return group;
     },
 
-    // ── ENERGY ORB ──
-    spawnEnergyOrb(x, z) {
+    // ═══════════════════════════════════════════════════════
+    //  TIER 2 — DARK MATTER SHARD  🟣  (+5 coins, rare clusters)
+    // ═══════════════════════════════════════════════════════
+    spawnDarkMatterShard(x, z) {
         const group = new THREE.Group();
         
-        const geo = new THREE.SphereGeometry(0.5, 16, 16);
+        // Dark crystalline core
+        const geo = new THREE.OctahedronGeometry(0.4);
         const mat = new THREE.MeshPhongMaterial({
-            color: 0x44ffaa,
-            emissive: 0x11aa55,
+            color: 0x6611cc,
+            emissive: 0x330066,
+            flatShading: true,
+            shininess: 120,
             transparent: true,
-            opacity: 0.8,
-            shininess: 100
+            opacity: 0.9
         });
-        const orb = new THREE.Mesh(geo, mat);
-        group.add(orb);
+        const core = new THREE.Mesh(geo, mat);
+        group.add(core);
         
-        const haloGeo = new THREE.SphereGeometry(0.7, 16, 16);
+        // Distortion halo (dark purple glow)
+        const haloGeo = new THREE.SphereGeometry(0.6, 16, 16);
         const haloMat = new THREE.MeshBasicMaterial({
-            color: 0x88ffcc,
+            color: 0x8833ff,
             transparent: true,
-            opacity: 0.3,
+            opacity: 0.25,
             blending: THREE.AdditiveBlending
         });
         const halo = new THREE.Mesh(haloGeo, haloMat);
         group.add(halo);
-
-        group.position.set(x, 1.2, z);
-        group.userData.type = 'energyOrb';
+        
+        // Orbiting particle ring
+        const ringGeo = new THREE.RingGeometry(0.55, 0.65, 16);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0xaa44ff,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.5
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI * 0.3;
+        group.add(ring);
+        group.userData.ring = ring;
+        
+        group.position.set(x, 2.5, z); // Above normal jump height
+        group.userData.type = 'darkMatterShard';
         group.userData.isCollectible = true;
+        group.userData.coinValue = CONFIG.COLLECTIBLES.darkMatterShard.coinValue;
+        group.userData.scoreValue = CONFIG.COLLECTIBLES.darkMatterShard.scoreValue;
+        group.userData.baseY = 2.5;
         
         this.scene.add(group);
         this.items.push(group);
         return group;
     },
 
-    // ── ALIEN ARTIFACT ──
-    spawnAlienArtifact(x, z) {
+    // ═══════════════════════════════════════════════════════
+    //  TIER 3 — COMET CRYSTAL  🌠  (+3 coins, diagonal trails)
+    // ═══════════════════════════════════════════════════════
+    spawnCometCrystal(x, z) {
         const group = new THREE.Group();
         
-        const geo = new THREE.OctahedronGeometry(0.5);
+        // Icy blue crystal
+        const geo = new THREE.TetrahedronGeometry(0.35);
         const mat = new THREE.MeshPhongMaterial({
-            color: 0xcc44ff,
-            emissive: 0x441188,
-            flatShading: true,
-            shininess: 90
+            color: 0x66ccff,
+            emissive: 0x1155aa,
+            shininess: 150,
+            transparent: true,
+            opacity: 0.85
         });
-        const artifact = new THREE.Mesh(geo, mat);
-        group.add(artifact);
+        const crystal = new THREE.Mesh(geo, mat);
+        group.add(crystal);
+        
+        // Comet tail (trailing particles)
+        const tailGeo = new THREE.ConeGeometry(0.15, 0.8, 8);
+        const tailMat = new THREE.MeshBasicMaterial({
+            color: 0x88ddff,
+            transparent: true,
+            opacity: 0.4,
+            blending: THREE.AdditiveBlending
+        });
+        const tail = new THREE.Mesh(tailGeo, tailMat);
+        tail.position.set(0, 0, 0.5);
+        tail.rotation.x = -Math.PI / 2;
+        group.add(tail);
+        
+        // Outer glow
+        const glowGeo = new THREE.SphereGeometry(0.5, 8, 8);
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: 0x44aaff,
+            transparent: true,
+            opacity: 0.2,
+            blending: THREE.AdditiveBlending
+        });
+        const glow = new THREE.Mesh(glowGeo, glowMat);
+        group.add(glow);
         
         group.position.set(x, 1.2, z);
-        group.userData.type = 'alienArtifact';
+        group.userData = {
+            type: 'cometCrystal',
+            isCollectible: true,
+            coinValue: CONFIG.COLLECTIBLES.cometCrystal.coinValue,
+            scoreValue: CONFIG.COLLECTIBLES.cometCrystal.scoreValue,
+            baseY: 1.2
+        };
+        
+        this.scene.add(group);
+        this.items.push(group);
+        return group;
+    },
+
+    // ═══════════════════════════════════════════════════════
+    //  TIER 4 — ALIEN TECH PART  🛸  (+10 coins, rare, obstacle-guarded)
+    // ═══════════════════════════════════════════════════════
+    spawnAlienTechPart(x, z) {
+        const group = new THREE.Group();
+        
+        // Metallic rotating fragment (complex shape)
+        const geo = new THREE.DodecahedronGeometry(0.45);
+        const mat = new THREE.MeshPhongMaterial({
+            color: 0xbbbbcc,
+            emissive: 0x334455,
+            metalness: 0.8,
+            flatShading: true,
+            shininess: 200
+        });
+        const part = new THREE.Mesh(geo, mat);
+        group.add(part);
+        
+        // Tech glow lines (wireframe overlay)
+        const wireGeo = new THREE.DodecahedronGeometry(0.48);
+        const wireMat = new THREE.MeshBasicMaterial({
+            color: 0x00ffaa,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.6
+        });
+        const wire = new THREE.Mesh(wireGeo, wireMat);
+        group.add(wire);
+        
+        // Scanning beam ring
+        const ringGeo = new THREE.TorusGeometry(0.6, 0.04, 8, 24);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0x00ff88,
+            transparent: true,
+            opacity: 0.5
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2;
+        group.add(ring);
+        group.userData.ring = ring;
+        
+        group.position.set(x, 1.4, z);
+        group.userData.type = 'alienTechPart';
         group.userData.isCollectible = true;
+        group.userData.coinValue = CONFIG.COLLECTIBLES.alienTechPart.coinValue;
+        group.userData.scoreValue = CONFIG.COLLECTIBLES.alienTechPart.scoreValue;
+        group.userData.baseY = 1.4;
+        
+        this.scene.add(group);
+        this.items.push(group);
+        return group;
+    },
+
+    // ═══════════════════════════════════════════════════════
+    //  TIER 5 — SOLAR ENERGY CELL  ☀️  (+15 coins, Mercury/Sun only)
+    // ═══════════════════════════════════════════════════════
+    spawnSolarEnergyCell(x, z) {
+        const group = new THREE.Group();
+        
+        // Golden hexagonal cell
+        const geo = new THREE.CylinderGeometry(0.45, 0.45, 0.15, 6);
+        const mat = new THREE.MeshPhongMaterial({
+            color: 0xffcc00,
+            emissive: 0xaa6600,
+            shininess: 150
+        });
+        const cell = new THREE.Mesh(geo, mat);
+        cell.rotation.x = Math.PI / 2;
+        group.add(cell);
+        
+        // Solar corona aura
+        const auraGeo = new THREE.SphereGeometry(0.7, 16, 16);
+        const auraMat = new THREE.MeshBasicMaterial({
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 0.3,
+            blending: THREE.AdditiveBlending
+        });
+        const aura = new THREE.Mesh(auraGeo, auraMat);
+        group.add(aura);
+        
+        // Pulsing ring
+        const ringGeo = new THREE.TorusGeometry(0.55, 0.06, 8, 24);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0xffdd44,
+            transparent: true,
+            opacity: 0.6
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = Math.PI / 2;
+        group.add(ring);
+        group.userData.ring = ring;
+        
+        group.position.set(x, 1.5, z);
+        group.userData.type = 'solarEnergyCell';
+        group.userData.isCollectible = true;
+        group.userData.coinValue = CONFIG.COLLECTIBLES.solarEnergyCell.coinValue;
+        group.userData.scoreValue = CONFIG.COLLECTIBLES.solarEnergyCell.scoreValue;
+        group.userData.baseY = 1.5;
+        
+        this.scene.add(group);
+        this.items.push(group);
+        return group;
+    },
+
+    // ═══════════════════════════════════════════════════════
+    //  TIER 6 — PLANET RELIC  🪐  (+50 coins, super rare, unique per planet)
+    // ═══════════════════════════════════════════════════════
+    spawnPlanetRelic(x, z, zoneName) {
+        const group = new THREE.Group();
+        
+        // Unique color per planet
+        const relicColors = {
+            Pluto:    { color: 0xaaccff, emissive: 0x335577 },
+            Neptune:  { color: 0x2266ff, emissive: 0x112266 },
+            Uranus:   { color: 0x44ffdd, emissive: 0x116655 },
+            Saturn:   { color: 0xddaa55, emissive: 0x665522 },
+            Jupiter:  { color: 0xff8844, emissive: 0x884422 },
+            Mars:     { color: 0xff3300, emissive: 0x881100 },
+            Earth:    { color: 0x0088ff, emissive: 0x004488 },
+            Venus:    { color: 0xffcc44, emissive: 0x886622 },
+            Mercury:  { color: 0xff6622, emissive: 0x883311 },
+            Sun:      { color: 0xffff00, emissive: 0xaa8800 }
+        };
+        
+        const name = zoneName || GameState.getCurrentZone().name;
+        const palette = relicColors[name] || { color: 0xffffff, emissive: 0x888888 };
+        
+        // Ornate sphere with engraved rings
+        const coreGeo = new THREE.IcosahedronGeometry(0.5, 2);
+        const coreMat = new THREE.MeshPhongMaterial({
+            color: palette.color,
+            emissive: palette.emissive,
+            shininess: 200,
+            flatShading: true
+        });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        group.add(core);
+        
+        // Double orbital rings
+        for (let i = 0; i < 2; i++) {
+            const rGeo = new THREE.TorusGeometry(0.7 + i * 0.15, 0.03, 8, 32);
+            const rMat = new THREE.MeshBasicMaterial({
+                color: palette.color,
+                transparent: true,
+                opacity: 0.6
+            });
+            const ring = new THREE.Mesh(rGeo, rMat);
+            ring.rotation.x = Math.PI / 2 + i * 0.8;
+            ring.rotation.y = i * 1.2;
+            group.add(ring);
+        }
+        
+        // Grand aura
+        const auraGeo = new THREE.SphereGeometry(1.0, 16, 16);
+        const auraMat = new THREE.MeshBasicMaterial({
+            color: palette.color,
+            transparent: true,
+            opacity: 0.15,
+            blending: THREE.AdditiveBlending
+        });
+        const aura = new THREE.Mesh(auraGeo, auraMat);
+        group.add(aura);
+        
+        group.position.set(x, 1.8, z);
+        group.userData = {
+            type: 'planetRelic',
+            isCollectible: true,
+            coinValue: CONFIG.COLLECTIBLES.planetRelic.coinValue,
+            scoreValue: CONFIG.COLLECTIBLES.planetRelic.scoreValue,
+            baseY: 1.8,
+            planetName: name
+        };
         
         this.scene.add(group);
         this.items.push(group);
@@ -342,6 +961,7 @@ const Obstacles = {
         group.userData.type = 'powerup';
         group.userData.powerupType = powerupType;
         group.userData.isCollectible = true;
+        group.userData.baseY = 1.5;
         
         this.scene.add(group);
         this.items.push(group);
@@ -646,21 +1266,36 @@ const Obstacles = {
             }
         }
         
-        // Update coins
+        // Update collectibles & powerups
         for (let i = this.items.length - 1; i >= 0; i--) {
-            const coin = this.items[i];
-            coin.rotation.y += delta * 3;
+            const item = this.items[i];
+            item.rotation.y += delta * 3;
+            
+            // Powerup ring spin
+            if (item.userData.ring) {
+                item.userData.ring.rotation.z += delta * 4;
+            }
+            
+            // Bobbing animation
+            item.position.y = item.userData.baseY + Math.sin(Date.now() * 0.003 + i) * 0.15;
             
             // Collection detection
-            if (this.checkCollision(coin, playerPos, 1.2)) {
-                this.scene.remove(coin);
+            if (this.checkCollision(item, playerPos, 1.2)) {
+                const result = {
+                    type: item.userData.type,
+                    isCollectible: item.userData.isCollectible || false,
+                    powerupType: item.userData.powerupType || null,
+                    coinValue: item.userData.coinValue || 0,
+                    scoreValue: item.userData.scoreValue || 0
+                };
+                this.scene.remove(item);
                 this.items.splice(i, 1);
-                return { type: 'coin' };
+                return result;
             }
             
             // Cleanup
-            if (coin.position.z > playerPos.z + 30) {
-                this.scene.remove(coin);
+            if (item.position.z > playerPos.z + 30) {
+                this.scene.remove(item);
                 this.items.splice(i, 1);
             }
         }
@@ -688,6 +1323,8 @@ const Obstacles = {
         
         this.items.forEach(c => this.scene.remove(c));
         this.items = [];
+        
+        this.resetAlgorithm();
     }
 };
 

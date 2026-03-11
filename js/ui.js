@@ -399,7 +399,7 @@ const UI = {
                         <span id="hud-score">0</span> pts
                     </div>
                     <div class="hud-stat hud-currencies">
-                        ⭐ <span id="hud-fragments">0</span> | 🔮 <span id="hud-orbs">0</span> | 🔺 <span id="hud-artifacts">0</span>
+                        🪙 <span id="hud-coins">0</span>
                     </div>
                     <div class="hud-stat hud-lives" id="hud-lives">
                         <span class="life-icon">💚</span>
@@ -428,11 +428,42 @@ const UI = {
         this.hudOverlay.style.display = 'none';
     },
     
-    showPowerupMessage(type) { const msg = document.createElement('div'); msg.className = 'powerup-msg'; msg.textContent = type.toUpperCase() + ' ACTIVATED!'; msg.style.position = 'absolute'; msg.style.top = '20%'; msg.style.left = '50%'; msg.style.transform = 'translateX(-50%)'; msg.style.color = '#fff'; msg.style.fontSize = '24px'; msg.style.fontWeight = 'bold'; msg.style.textShadow = '0 0 10px #ff0'; document.body.appendChild(msg); setTimeout(() => msg.remove(), 2000); },
+    showPowerupMessage(type) {
+        const names = {
+            shield: '🛡️ SHIELD',
+            darkMatter: '🌑 DARK MATTER',
+            gravity: '🌀 GRAVITY STABILIZER',
+            warp: '⚡ WARP DRIVE',
+            magnet: '🧲 MAGNET FIELD'
+        };
+        const msg = document.createElement('div');
+        msg.className = 'powerup-msg';
+        msg.textContent = (names[type] || type.toUpperCase()) + ' ACTIVATED!';
+        msg.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);color:#fff;font-size:28px;font-weight:bold;text-shadow:0 0 15px #ff0,0 0 30px #f80;z-index:9999;pointer-events:none;animation:powerupFade 2s forwards;';
+        
+        if (!document.getElementById('powerup-fade-style')) {
+            const style = document.createElement('style');
+            style.id = 'powerup-fade-style';
+            style.textContent = '@keyframes powerupFade { 0%{opacity:0;transform:translateX(-50%) scale(0.5)} 15%{opacity:1;transform:translateX(-50%) scale(1.2)} 30%{transform:translateX(-50%) scale(1)} 80%{opacity:1} 100%{opacity:0;transform:translateX(-50%) translateY(-30px)} }';
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(msg);
+        setTimeout(() => msg.remove(), 2000);
+    },
+
+    showCollectMessage(label, coinValue) {
+        const msg = document.createElement('div');
+        msg.className = 'collect-msg';
+        msg.textContent = label + ' +' + coinValue + ' \ud83e\ude99';
+        msg.style.cssText = 'position:fixed;top:30%;left:50%;transform:translateX(-50%);color:#ffd700;font-size:22px;font-weight:bold;text-shadow:0 0 10px #fa0,0 0 20px #f80;z-index:9999;pointer-events:none;animation:powerupFade 1.5s forwards;';
+        document.body.appendChild(msg);
+        setTimeout(() => msg.remove(), 1500);
+    },
 
     updateHUD() {
         document.getElementById('hud-score').textContent = GameState.score;
-        document.getElementById('hud-fragments').textContent = GameState.starFragments; document.getElementById('hud-orbs').textContent = GameState.energyOrbs; document.getElementById('hud-artifacts').textContent = GameState.alienArtifacts;
+        document.getElementById('hud-coins').textContent = GameState.coins;
         
         // Lives
         const livesContainer = document.getElementById('hud-lives');
@@ -465,7 +496,7 @@ const UI = {
                 <h1 class="gameover-title">GAME OVER</h1>
                 <div class="gameover-stats">
                     <p>Score: <span id="go-score">0</span></p>
-                    <p>Fragments: <span id="go-fragments">0</span> | Orbs: <span id="go-orbs">0</span> | Artifacts: <span id="go-artifacts">0</span></p>
+                    <p>Coins: <span id="go-coins">0</span> 🪙</p>
                     <p>Zone Reached: <span id="go-zone">Pluto</span></p>
                 </div>
                 <div class="gameover-btns">
@@ -495,11 +526,11 @@ const UI = {
     
     showGameOver() {
         document.getElementById('go-score').textContent = GameState.score;
-        document.getElementById('go-fragments').textContent = GameState.starFragments; document.getElementById('go-orbs').textContent = GameState.energyOrbs; document.getElementById('go-artifacts').textContent = GameState.alienArtifacts;
+        document.getElementById('go-coins').textContent = GameState.coins;
         document.getElementById('go-zone').textContent = GameState.getCurrentZone().name;
         
         // Update high score
-        SaveSystem.updateHighScore(GameState.score);
+        SaveSystem.updateHighScore(GameState.score, GameState.coins);
         
         this.gameoverOverlay.style.display = 'flex';
     },
