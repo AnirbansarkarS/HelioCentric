@@ -48,9 +48,11 @@ const UI = {
                 
                 <div class="controls-info">
                     <h3>Controls</h3>
-                    <p>← → or A/D : Move lanes</p>
-                    <p>Space or W : Jump</p>
-                    <p>P : Pause</p>
+                    <p class="desktop-controls">← → or A/D : Move lanes</p>
+                    <p class="desktop-controls">Space or W : Jump</p>
+                    <p class="desktop-controls">P : Pause</p>
+                    <p class="mobile-controls" style="display: none;">👆 Swipe left/right to change lanes</p>
+                    <p class="mobile-controls" style="display: none;">👆 Swipe up to jump</p>
                 </div>
             </div>
         `;
@@ -133,14 +135,62 @@ const UI = {
                 background: linear-gradient(135deg, #ffd700, #ff8c00, #ff6347);
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
+                background-clip: text;
                 text-shadow: none;
                 filter: drop-shadow(0 0 20px rgba(255, 165, 0, 0.5));
+                line-height: 1.2;
             }
             
             .game-subtitle {
                 font-size: 1.2rem;
                 color: #88aadd;
                 margin: 10px 0 40px;
+            }
+            
+            /* Mobile Responsive Styles */
+            @media (max-width: 768px) {
+                .menu-container {
+                    padding: 20px 15px;
+                    max-width: 100vw;
+                    overflow-x: hidden;
+                }
+                
+                .game-title {
+                    font-size: 2.5rem;
+                    margin-bottom: 5px;
+                }
+                
+                .game-subtitle {
+                    font-size: 0.9rem;
+                    margin: 5px 0 25px;
+                }
+                
+                .menu-btn {
+                    font-size: 1rem;
+                    padding: 12px 25px;
+                }
+                
+                .controls-info {
+                    font-size: 0.85rem;
+                }
+                
+                .controls-info h3 {
+                    font-size: 1rem;
+                }
+            }
+            
+            @media (max-width: 480px) {
+                .game-title {
+                    font-size: 2rem;
+                }
+                
+                .game-subtitle {
+                    font-size: 0.8rem;
+                }
+                
+                .menu-container {
+                    padding: 15px 10px;
+                }
             }
             
             .menu-buttons {
@@ -239,8 +289,20 @@ const UI = {
                 margin-top: 40px;
                 color: #666;
                 font-size: 0.9rem;
+            }            
+            .mobile-controls {
+                display: none;
             }
             
+            @media (max-width: 768px), (pointer: coarse) {
+                .desktop-controls {
+                    display: none;
+                }
+                
+                .mobile-controls {
+                    display: block !important;
+                }
+            }            
             .controls-info h3 {
                 color: #888;
                 margin-bottom: 10px;
@@ -296,6 +358,73 @@ const UI = {
             
             .hud-zone {
                 text-align: right;
+            }
+            
+            .hud-pause-btn {
+                background: rgba(0, 0, 0, 0.5);
+                border: none;
+                border-radius: 50%;
+                color: white;
+                font-size: 1.5rem;
+                width: 45px;
+                height: 45px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                cursor: pointer;
+                backdrop-filter: blur(10px);
+                transition: transform 0.2s, background 0.2s;
+                margin-right: 15px;
+            }
+            
+            .hud-pause-btn:hover {
+                transform: scale(1.1);
+                background: rgba(255, 255, 255, 0.2);
+            }
+            
+            /* HUD Mobile Responsive */
+            @media (max-width: 768px) {
+                .hud-top {
+                    padding: 10px;
+                    flex-wrap: wrap;
+                }\n                
+                .hud-stat {
+                    font-size: 0.9rem;
+                    padding: 6px 12px;
+                }
+                
+                .hud-pause-btn {
+                    width: 38px;
+                    height: 38px;
+                    font-size: 1.2rem;
+                    margin-right: 8px;
+                }
+                
+                .life-icon {
+                    font-size: 1.2rem;
+                }
+                
+                .zone-name {
+                    font-size: 0.85rem;
+                }
+            }
+            
+            @media (max-width: 480px) {
+                .hud-top {
+                    padding: 8px;
+                }
+                
+                .hud-stat {
+                    font-size: 0.8rem;
+                    padding: 5px 10px;
+                }
+                
+                .hud-pause-btn {
+                    width: 35px;
+                    height: 35px;
+                    font-size: 1.1rem;
+                    margin-right: 5px;
+                }
             }
             
             .zone-name {
@@ -372,6 +501,45 @@ const UI = {
                 color: #4488ff;
                 margin-bottom: 30px;
             }
+            
+            /* Game Over & Pause Mobile Responsive */
+            @media (max-width: 768px) {
+                .gameover-container, .pause-container {
+                    padding: 20px;
+                    max-width: 90vw;
+                }
+                
+                .gameover-title, .pause-title {
+                    font-size: 2rem;
+                    margin-bottom: 20px;
+                }
+                
+                .gameover-stats {
+                    font-size: 1.1rem;
+                }
+                
+                .gameover-btns {
+                    flex-direction: column;
+                    gap: 15px;
+                    width: 100%;
+                    max-width: 300px;
+                    margin: 20px auto 0;
+                }
+                
+                .menu-btn {
+                    width: 100%;
+                }
+            }
+            
+            @media (max-width: 480px) {
+                .gameover-title, .pause-title {
+                    font-size: 1.5rem;
+                }
+                
+                .gameover-stats {
+                    font-size: 1rem;
+                }
+            }
         `;
         document.head.appendChild(style);
     },
@@ -407,7 +575,8 @@ const UI = {
                         <span class="life-icon">💚</span>
                     </div>
                 </div>
-                <div class="hud-right">
+                <div class="hud-right" style="display: flex; align-items: center;">
+                    <button id="hud-pause-btn" class="hud-pause-btn" title="Pause Game">⏸️</button>
                     <div class="hud-stat hud-zone">
                         <span class="zone-name" id="hud-zone-name">Pluto</span>
                         <div class="zone-progress">
@@ -418,6 +587,14 @@ const UI = {
             </div>
         `;
         this.container.appendChild(this.hudOverlay);
+        
+        // Pause button event
+        document.getElementById('hud-pause-btn').addEventListener('click', () => {
+            if (!GameState.isPaused && GameState.isPlaying && !GameState.isGameOver) {
+                GameState.isPaused = true;
+                this.showPause();
+            }
+        });
     },
     
     showHUD() {
