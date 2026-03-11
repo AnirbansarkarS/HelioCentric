@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HelioCentric - Stage 1</title>
+    <title>HelioCentric - Stage 5</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; }
         canvas { display: block; }
@@ -11,7 +11,7 @@
     </style>
 </head>
 <body>
-    <div id="ui">Stage 3: Jump Mechanic</div>
+    <div id="ui">Score: 0</div>
     <div id="gameOver" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: red; font-family: monospace; font-size: 48px; text-transform: uppercase;">Game Over</div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
@@ -70,7 +70,7 @@
 
         // Game Configuration
         const LANE_WIDTH = 3;
-        const MOVEMENT_SPEED = 20; // Units per second forward
+        let MOVEMENT_SPEED = 20; // Units per second forward
         let currentLane = 0; // -1 = Left, 0 = Center, 1 = Right
         let ufoZPos = 0;
         let isGameOver = false;
@@ -81,6 +81,38 @@
         const JUMP_FORCE = 12;
         const GRAVITY = -30;
         const UFO_BASE_Y = 0;
+
+        // Environment System (Planets)
+        const planets = [
+            { name: "Pluto", distance: 0, bgColor: 0x050510, objColor: 0xaaaaaa, mesh: null },
+            { name: "Neptune", distance: 1000, bgColor: 0x000033, objColor: 0x2244ff, mesh: null },
+            { name: "Uranus", distance: 2000, bgColor: 0x001133, objColor: 0x44ffff, mesh: null },
+            { name: "Saturn", distance: 3000, bgColor: 0x1a1500, objColor: 0xddaa55, mesh: null },
+            { name: "Jupiter", distance: 4000, bgColor: 0x221100, objColor: 0xffaa88, mesh: null },
+            { name: "Mars", distance: 5000, bgColor: 0x330500, objColor: 0xff3300, mesh: null },
+            { name: "Earth", distance: 6000, bgColor: 0x001144, objColor: 0x0088ff, mesh: null },
+            { name: "Venus", distance: 7000, bgColor: 0x332200, objColor: 0xffcc44, mesh: null },
+            { name: "Mercury", distance: 8000, bgColor: 0x222222, objColor: 0x999999, mesh: null },
+            { name: "Sun", distance: 9000, bgColor: 0x551100, objColor: 0xffff00, mesh: null }
+        ];
+        let currentPlanetIndex = 0;
+
+        // Create representative planet meshes in the background
+        const planetGroup = new THREE.Group();
+        planets.forEach((p, index) => {
+            const geo = new THREE.SphereGeometry(20, 32, 32);
+            let mat;
+            if (p.name === "Sun") mat = new THREE.MeshBasicMaterial({ color: p.objColor });
+            else mat = new THREE.MeshPhongMaterial({ color: p.objColor });
+            
+            const mesh = new THREE.Mesh(geo, mat);
+            // Position them far ahead and off to the side, based on their distance
+            mesh.position.set(40 * (index % 2 === 0 ? 1 : -1), 20, -p.distance - 500);
+            
+            p.mesh = mesh;
+            planetGroup.add(mesh);
+        });
+        scene.add(planetGroup);
 
         // Obstacles
         const obstacles = [];
@@ -130,9 +162,40 @@
 
             const delta = clock.getDelta();
 
+            // Increase speed slowly
+            MOVEMENT_SPEED += delta * 0.5;
+
             // Forward movement
             ufoZPos -= MOVEMENT_SPEED * delta;
             ufoGroup.position.z = ufoZPos;
+
+            // Environment Update based on Distance
+            const dist = -ufoZPos;
+            
+            // Check if we need to advance the current planet zone
+            if (currentPlanetIndex < planets.length - 1 && dist >= planets[currentPlanetIndex + 1].distance) {
+                currentPlanetIndex++;
+            }
+            
+            // Interpolate colors between current and next planet zone
+            const pCurrent = planets[currentPlanetIndex];
+            const pNext = planets[Math.min(currentPlanetIndex + 1, planets.length - 1)];
+            
+            let t = 0;
+            if (pNext.distance > pCurrent.distance) {
+                t = (dist - pCurrent.distance) / (pNext.distance - pCurrent.distance);
+                t = Math.max(0, Math.min(1, t)); // Clamp 0 to 1
+            }
+            
+            const currentColor = new THREE.Color(pCurrent.bgColor);
+            const nextColor = new THREE.Color(pNext.bgColor);
+            currentColor.lerp(nextColor, t);
+            
+            scene.fog.color.copy(currentColor);
+            scene.background = currentColor;
+
+            // Update UI Score
+            document.getElementById('ui').innerHTML = `Score: ${Math.floor(dist)}<br>Speed: ${Math.floor(MOVEMENT_SPEED)}<br>Zone: ${pCurrent.name}`;
 
             // Lane switching (smooth targeting)
             const targetX = currentLane * LANE_WIDTH;
@@ -156,8 +219,11 @@
                 
                 // Randomly choose between obstacle (needs dodging) and hazard (needs jumping)
                 if (Math.random() > 0.3) {
+                    // Update material based on current zone
+                    obstacleMat.color.setHex(pCurrent.objColor);
+
                     // Spawn Obstacle
-                    const obsMesh = new THREE.Mesh(obstacleGeo, obstacleMat);
+                    const obsMesh = new THREE.Mesh(obstacleGeo, obstacleMat.clone()); // Clone to maintain colors in case of transition
                     obsMesh.position.set(lane * LANE_WIDTH, 0, nextObstacleZ);
                     obsMesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
                     
