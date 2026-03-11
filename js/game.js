@@ -82,6 +82,7 @@ const Game = {
     },
     
     setupInput() {
+        // Keyboard controls
         document.addEventListener('keydown', (e) => {
             if (GameState.isGameOver || GameState.isPaused) {
                 if (e.code === 'KeyP' && GameState.isPaused) {
@@ -111,6 +112,47 @@ const Game = {
                     break;
             }
         });
+        
+        // Mobile touch controls
+        this.setupTouchControls();
+    },
+    
+    setupTouchControls() {
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+        const minSwipeDistance = 30;
+        
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+        
+        document.addEventListener('touchend', (e) => {
+            if (GameState.isGameOver || GameState.isPaused) return;
+            
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+            
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            const absDeltaX = Math.abs(deltaX);
+            const absDeltaY = Math.abs(deltaY);
+            
+            // Horizontal swipe (lane change)
+            if (absDeltaX > absDeltaY && absDeltaX > minSwipeDistance) {
+                if (deltaX > 0) {
+                    Player.moveRight();
+                } else {
+                    Player.moveLeft();
+                }
+            }
+            // Vertical swipe up (jump)
+            else if (absDeltaY > absDeltaX && deltaY < -minSwipeDistance) {
+                Player.jump();
+            }
+        }, { passive: true });
     },
     
     startGame(checkpoint) {
