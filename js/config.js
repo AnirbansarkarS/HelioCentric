@@ -43,7 +43,17 @@ const CONFIG = {
     
     // Storage Keys
     SAVE_KEY: 'heliocentric_saves',
-    SETTINGS_KEY: 'heliocentric_settings'
+    SETTINGS_KEY: 'heliocentric_settings',
+    
+    // Collectible Tiers
+    COLLECTIBLES: {
+        starFragment:   { coinValue: 1,  scoreValue: 5,   rarity: 0.45, emoji: '⭐', label: 'Star Fragment' },
+        darkMatterShard:{ coinValue: 5,  scoreValue: 25,  rarity: 0.18, emoji: '🟣', label: 'Dark Matter Shard' },
+        cometCrystal:   { coinValue: 3,  scoreValue: 15,  rarity: 0.20, emoji: '🌠', label: 'Comet Crystal' },
+        alienTechPart:  { coinValue: 10, scoreValue: 50,  rarity: 0.10, emoji: '🛸', label: 'Alien Tech Part' },
+        solarEnergyCell:{ coinValue: 15, scoreValue: 75,  rarity: 0.05, emoji: '☀️', label: 'Solar Energy Cell' },
+        planetRelic:    { coinValue: 50, scoreValue: 250, rarity: 0.02, emoji: '🪐', label: 'Planet Relic' }
+    }
 };
 
 // Planet/Zone definitions with all visual and gameplay parameters

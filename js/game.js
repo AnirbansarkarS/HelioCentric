@@ -124,6 +124,7 @@ const Game = {
 
         // Clear existing objects
         Obstacles.clear();
+        Obstacles.resetAlgorithm();
         ZoneManager.clear();
         Particles.clear();
         
@@ -238,37 +239,43 @@ const Game = {
     
     spawnObstacles(z) {
         const zone = GameState.getCurrentZone();
-        const lane = Math.floor(Math.random() * 3) - 1;
+        const distance = -GameState.ufoZPos;
 
-        ZoneManager.spawn(zone.name, lane, z);
+        // Use the advanced obstacle algorithm
+        Obstacles.spawnRow(z, zone, distance);
+
+        // Also spawn zone-specific special mechanics (Uranus rings, Saturn cross rings, etc)
+        const zoneName = zone.name;
+        if (zoneName === 'Uranus' && Math.random() < 0.15) {
+            ZoneManager.spawnUranusRing(z);
+        } else if (zoneName === 'Saturn' && Math.random() < 0.15) {
+            ZoneManager.spawnSaturnCrossRing(z);
+        }
     },
     
     handleCollision(collision, playerPos) {
         if (collision.isCollectible) {
             Particles.spawnCoinCollect(playerPos);
             
-            switch(collision.type) {
-                case 'starFragment':
-                    GameState.starFragments++;
-                    // Maybe add a bit of score per fragment
-                    GameState.score += 10;
-                    break;
-                case 'energyOrb':
-                    GameState.energyOrbs++;
-                    GameState.score += 50;
-                    break;
-                case 'alienArtifact':
-                    GameState.alienArtifacts++;
-                    GameState.score += 150;
-                    break;
-                case 'powerup':
-                    // Activate powerup timer
-                    GameState[`${collision.powerupType}Timer`] = CONFIG.POWERUP_DURATION;
-                    if (collision.powerupType === 'shield') {
-                        GameState.shieldActive = true;
+            if (collision.type === 'powerup') {
+                // Activate powerup timer
+                GameState[`${collision.powerupType}Timer`] = CONFIG.POWERUP_DURATION;
+                if (collision.powerupType === 'shield') {
+                    GameState.shieldActive = true;
+                }
+                UI.showPowerupMessage(collision.powerupType);
+            } else {
+                // All collectible tiers feed into unified coins
+                GameState.coins += (collision.coinValue || 1);
+                GameState.score += (collision.scoreValue || 5);
+                
+                // Show collect message for rare tiers
+                if (collision.coinValue >= 10) {
+                    const tier = CONFIG.COLLECTIBLES[collision.type];
+                    if (tier) {
+                        UI.showCollectMessage(tier.emoji + ' ' + tier.label, collision.coinValue);
                     }
-                    UI.showPowerupMessage(collision.powerupType);
-                    break;
+                }
             }
         } else if (collision.type === 'obstacle') {
             if (GameState.shieldActive) {

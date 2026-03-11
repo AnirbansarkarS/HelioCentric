@@ -10,9 +10,7 @@ const GameState = {
     
     // Player state
     lives: CONFIG.INITIAL_LIVES,
-    starFragments: 0,
-    energyOrbs: 0,
-    alienArtifacts: 0,
+    coins: 0,
     score: 0,
     currentZoneIndex: 0,
     
@@ -48,9 +46,7 @@ const GameState = {
         this.isPaused = false;
         this.isGameOver = false;
         this.lives = CONFIG.INITIAL_LIVES;
-        this.starFragments = 0;
-        this.energyOrbs = 0;
-        this.alienArtifacts = 0;
+        this.coins = 0;
         this.score = 0;
         
         // Reset powerups
@@ -134,10 +130,10 @@ const SaveSystem = {
     getSaves() {
         try {
             const data = localStorage.getItem(CONFIG.SAVE_KEY);
-            return data ? JSON.parse(data) : { checkpoints: [], highScore: 0, totalStarFragments: 0, totalEnergyOrbs: 0, totalAlienArtifacts: 0 };
+            return data ? JSON.parse(data) : { checkpoints: [], highScore: 0, totalCoins: 0 };
         } catch (e) {
             console.error('Failed to parse saves', e);
-            return { checkpoints: [], highScore: 0, totalStarFragments: 0, totalEnergyOrbs: 0, totalAlienArtifacts: 0 };
+            return { checkpoints: [], highScore: 0, totalCoins: 0 };
         }
     },
     
@@ -159,15 +155,13 @@ const SaveSystem = {
     },
     
     // Update high score
-    updateHighScore(score, fragments, orbs, artifacts) {
+    updateHighScore(score, coins) {
         try {
             const saves = this.getSaves();
             if (score > saves.highScore) {
                 saves.highScore = score;
             }
-            saves.totalStarFragments = (saves.totalStarFragments || 0) + fragments;
-            saves.totalEnergyOrbs = (saves.totalEnergyOrbs || 0) + orbs;
-            saves.totalAlienArtifacts = (saves.totalAlienArtifacts || 0) + artifacts;
+            saves.totalCoins = (saves.totalCoins || 0) + coins;
             localStorage.setItem(CONFIG.SAVE_KEY, JSON.stringify(saves));
             return true;
         } catch (e) {
@@ -206,14 +200,10 @@ const SaveSystem = {
         return this.getSaves().highScore || 0;
     },
     
-    // Get total currencies collected
-    getTotalCurrencies() {
+    // Get total coins collected
+    getTotalCoins() {
         const saves = this.getSaves();
-        return {
-            fragments: saves.totalStarFragments || 0,
-            orbs: saves.totalEnergyOrbs || 0,
-            artifacts: saves.totalAlienArtifacts || 0
-        };
+        return saves.totalCoins || 0;
     }
 };
 
