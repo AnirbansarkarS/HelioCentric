@@ -298,6 +298,28 @@ const UI = {
                 text-align: right;
             }
             
+            .hud-pause-btn {
+                background: rgba(0, 0, 0, 0.5);
+                border: none;
+                border-radius: 50%;
+                color: white;
+                font-size: 1.5rem;
+                width: 45px;
+                height: 45px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                cursor: pointer;
+                backdrop-filter: blur(10px);
+                transition: transform 0.2s, background 0.2s;
+                margin-right: 15px;
+            }
+            
+            .hud-pause-btn:hover {
+                transform: scale(1.1);
+                background: rgba(255, 255, 255, 0.2);
+            }
+            
             .zone-name {
                 font-weight: bold;
                 color: #ffd700;
@@ -407,7 +429,8 @@ const UI = {
                         <span class="life-icon">💚</span>
                     </div>
                 </div>
-                <div class="hud-right">
+                <div class="hud-right" style="display: flex; align-items: center;">
+                    <button id="hud-pause-btn" class="hud-pause-btn" title="Pause Game">⏸️</button>
                     <div class="hud-stat hud-zone">
                         <span class="zone-name" id="hud-zone-name">Pluto</span>
                         <div class="zone-progress">
@@ -418,6 +441,14 @@ const UI = {
             </div>
         `;
         this.container.appendChild(this.hudOverlay);
+        
+        // Pause button event
+        document.getElementById('hud-pause-btn').addEventListener('click', () => {
+            if (!GameState.isPaused && GameState.isPlaying && !GameState.isGameOver) {
+                GameState.isPaused = true;
+                this.showPause();
+            }
+        });
     },
     
     showHUD() {
