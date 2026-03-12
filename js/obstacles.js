@@ -463,46 +463,72 @@ const Obstacles = {
     },
     
     // ── HAZARD (Black Hole) ──
+    // Spawns across two adjacent lanes - deadly on both!
     spawnHazard(lane, z) {
         const group = new THREE.Group();
         
-        // Event horizon
-        const coreGeo = new THREE.SphereGeometry(0.6, 32, 32);
-        const coreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        // Determine which two lanes this black hole covers
+        // If lane is -1 (left), covers -1 and 0
+        // If lane is 0 (middle), covers 0 and random side (-1 or 1)
+        // If lane is 1 (right), covers 0 and 1
+        let lane1 = lane;
+        let lane2 = (lane === -1) ? 0 : (lane === 1) ? 0 : (Math.random() < 0.5 ? -1 : 1);
+        
+        // Center position between the two lanes
+        const centerX = (lane1 + lane2) * CONFIG.LANE_WIDTH / 2;
+        
+        // Event horizon - HUGE and flat (spanning 2 lanes)
+        const coreGeo = new THREE.CircleGeometry(3.2, 32);
+        const coreMat = new THREE.MeshBasicMaterial({ 
+            color: 0x000000,
+            side: THREE.DoubleSide
+        });
         const core = new THREE.Mesh(coreGeo, coreMat);
+        core.rotation.x = Math.PI / 2; // Lay flat on ground
         group.add(core);
         
-        // Accretion disk
-        const discGeo = new THREE.RingGeometry(0.8, 2.0, 32);
+        // Accretion disk - massive and flat
+        const discGeo = new THREE.RingGeometry(3.3, 5.5, 32);
         const discMat = new THREE.MeshBasicMaterial({
             color: 0xff4400,
             side: THREE.DoubleSide,
             transparent: true,
-            opacity: 0.8
+            opacity: 0.7
         });
         const disc = new THREE.Mesh(discGeo, discMat);
-        disc.rotation.x = Math.PI / 2 + 0.3;
+        disc.rotation.x = Math.PI / 2; // Flat on ground
         group.add(disc);
         
-        // Inner glow ring
-        const ringGeo = new THREE.TorusGeometry(0.7, 0.1, 16, 32);
+        // Inner glow ring - flat
+        const ringGeo = new THREE.TorusGeometry(3.0, 0.2, 16, 32);
         const ringMat = new THREE.MeshBasicMaterial({
             color: 0xff8800,
             transparent: true,
             opacity: 0.7
         });
         const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.rotation.x = Math.PI / 2 + 0.3;
+        ring.rotation.x = Math.PI / 2; // Flat on ground
         group.add(ring);
         
-        // Glow sprite
+        // Outer warning ring
+        const warnRingGeo = new THREE.TorusGeometry(4.2, 0.15, 16, 32);
+        const warnRingMat = new THREE.MeshBasicMaterial({
+            color: 0xff0000,
+            transparent: true,
+            opacity: 0.5
+        });
+        const warnRing = new THREE.Mesh(warnRingGeo, warnRingMat);
+        warnRing.rotation.x = Math.PI / 2;
+        group.add(warnRing);
+        
+        // Glow sprite - massive
         const glowCanvas = document.createElement('canvas');
         glowCanvas.width = 64;
         glowCanvas.height = 64;
         const ctx = glowCanvas.getContext('2d');
         const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-        gradient.addColorStop(0, 'rgba(255, 100, 0, 0.8)');
-        gradient.addColorStop(0.5, 'rgba(255, 50, 0, 0.3)');
+        gradient.addColorStop(0, 'rgba(255, 100, 0, 0.9)');
+        gradient.addColorStop(0.4, 'rgba(255, 50, 0, 0.4)');
         gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, 64, 64);
@@ -515,13 +541,15 @@ const Obstacles = {
             opacity: 0.7
         });
         const glow = new THREE.Sprite(glowMat);
-        glow.scale.set(4, 4, 1);
+        glow.scale.set(11, 11, 1); // Massive glow
         group.add(glow);
         
-        group.position.set(lane * CONFIG.LANE_WIDTH, 0.5, z);
+        group.position.set(centerX, 0.05, z); // Very close to ground, centered between lanes
         group.userData.type = 'hazard';
         group.userData.disc = disc;
         group.userData.ring = ring;
+        group.userData.warnRing = warnRing;
+        group.userData.occupiedLanes = [lane1, lane2]; // Track both lanes
         
         this.scene.add(group);
         this.hazards.push(group);
@@ -1251,12 +1279,29 @@ const Obstacles = {
             if (haz.userData.ring) {
                 haz.userData.ring.rotation.z -= delta * 3;
             }
+            if (haz.userData.warnRing) {
+                haz.userData.warnRing.rotation.z += delta * 4;
+            }
             
-            // Collision detection
-            if (this.checkCollision(haz, playerPos, 1.0)) {
-                this.scene.remove(haz);
-                this.hazards.splice(i, 1);
-                return { type: 'hazard' };
+            // Collision detection - check if player is in one of the occupied lanes
+            if (haz.userData.occupiedLanes) {
+                // Get player's current lane based on X position
+                const playerLane = Math.round(playerPos.x / CONFIG.LANE_WIDTH);
+                const zDistance = Math.abs(haz.position.z - playerPos.z);
+                
+                // If player is in one of the black hole's lanes and close in Z
+                if (haz.userData.occupiedLanes.includes(playerLane) && zDistance < 3) {
+                    this.scene.remove(haz);
+                    this.hazards.splice(i, 1);
+                    return { type: 'hazard' };
+                }
+            } else {
+                // Fallback for old-style hazards
+                if (this.checkCollision(haz, playerPos, 1.8)) {
+                    this.scene.remove(haz);
+                    this.hazards.splice(i, 1);
+                    return { type: 'hazard' };
+                }
             }
             
             // Cleanup
@@ -1278,6 +1323,25 @@ const Obstacles = {
             
             // Bobbing animation
             item.position.y = item.userData.baseY + Math.sin(Date.now() * 0.003 + i) * 0.15;
+            
+            // MAGNET FIELD: Attract all collectibles towards player
+            if (GameState.magnetTimer > 0 && item.userData.isCollectible) {
+                const attractionSpeed = 12; // units per second
+                const dir = new THREE.Vector3(
+                    playerPos.x - item.position.x,
+                    playerPos.y - item.position.y,
+                    playerPos.z - item.position.z
+                );
+                const distance = dir.length();
+                
+                // Only attract items that are close enough (within visual range)
+                if (distance < 25 && distance > 0.1) {
+                    dir.normalize();
+                    item.position.x += dir.x * attractionSpeed * delta;
+                    item.position.y += dir.y * attractionSpeed * delta;
+                    item.position.z += dir.z * attractionSpeed * delta;
+                }
+            }
             
             // Collection detection
             if (this.checkCollision(item, playerPos, 1.2)) {
