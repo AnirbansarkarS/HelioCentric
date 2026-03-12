@@ -223,51 +223,19 @@ const ZoneManager = {
         }
     },
     
-    // ── URANUS RING ──
+    // ── URANUS RING (Now acting as Saturn Cross Ring) ──
     spawnUranusRing(z) {
-        const group = new THREE.Group();
-        const count = 8 + Math.floor(Math.random() * 5);
-        const radius = 4;
-        const gapAngle = Math.random() * Math.PI * 2;
-        const gapSize = 0.8;
-        
-        for (let i = 0; i < count; i++) {
-            const angle = (i / count) * Math.PI * 2;
-            let diff = Math.abs(angle - gapAngle);
-            if (diff > Math.PI) diff = Math.PI * 2 - diff;
-            if (diff < gapSize) continue;
-            
-            const geo = Obstacles.createAsteroidGeo(0.4);
-            const mat = new THREE.MeshPhongMaterial({ 
-                color: 0x66cccc, 
-                flatShading: true 
-            });
-            const rock = new THREE.Mesh(geo, mat);
-            rock.position.set(
-                Math.cos(angle) * radius, 
-                Math.sin(angle) * radius * 0.3, 
-                0
-            );
-            group.add(rock);
-        }
-        
-        group.position.set(0, 0.5, z);
-        group.userData.type = 'uranusRing';
-        this.scene.add(group);
-        this.uranusRings.push(group);
-    },
-    
-    // ── SATURN CROSS RING ──
-    spawnSaturnCrossRing(z) {
+        // SWAPPED: Uses Saturn's logic (moving torus pieces side-to-side)
         const group = new THREE.Group();
         const n = 10 + Math.floor(Math.random() * 6);
         
         for (let i = 0; i < n; i++) {
             const geo = new THREE.TorusGeometry(0.2 + Math.random() * 0.15, 0.06, 8, 12);
+            // Use Uranus colors for the swapped obstacle
             const mat = new THREE.MeshPhongMaterial({ 
-                color: 0xccaa55, 
+                color: 0x66cccc, 
                 flatShading: true, 
-                emissive: 0x332200 
+                emissive: 0x224444 
             });
             const piece = new THREE.Mesh(geo, mat);
             piece.position.set(
@@ -284,9 +252,52 @@ const ZoneManager = {
         }
         
         group.position.set(0, 0.3, z);
-        group.userData.type = 'saturnCrossRing';
+        group.userData.type = 'uranusRing';
         group.userData.speed = 1.0 + Math.random() * 1.5;
         group.userData.time = Math.random() * Math.PI * 2;
+        this.scene.add(group);
+        this.uranusRings.push(group);
+    },
+    
+    // ── SATURN CROSS RING (Now acting as Uranus Ring) ──
+    spawnSaturnCrossRing(z) {
+        // SWAPPED: Uses Uranus logic (rotating ring of obstacles)
+        const group = new THREE.Group();
+        const count = 8 + Math.floor(Math.random() * 5);
+        const radius = 4;
+        const gapAngle = Math.random() * Math.PI * 2;
+        const gapSize = 0.8;
+        
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2;
+            let diff = Math.abs(angle - gapAngle);
+            if (diff > Math.PI) diff = Math.PI * 2 - diff;
+            if (diff < gapSize) continue;
+            
+            const geo = Obstacles.createAsteroidGeo(0.4);
+            // Use Saturn colors for the swapped obstacle
+            const mat = new THREE.MeshPhongMaterial({ 
+                color: 0xccaa55, 
+                flatShading: true 
+            });
+            const rock = new THREE.Mesh(geo, mat);
+            rock.position.set(
+                Math.cos(angle) * radius, 
+                Math.sin(angle) * radius * 0.3, 
+                0
+            );
+            group.add(rock);
+        }
+        
+        group.position.set(0, 0.5, z);
+        group.userData.type = 'saturnCrossRing';
+        // Random rotation speed: between 1.2 and 3.7 radians/sec, random direction
+        group.userData.rotSpeed = (1.2 + Math.random() * 2.5) * (Math.random() < 0.5 ? 1 : -1);
+        group.userData.varySpeed = Math.random() > 0.4; // 60% chance to have varying speed
+        
+        // Randomize initial rotation so gaps aren't aligned
+        group.rotation.y = Math.random() * Math.PI * 2;
+        
         this.scene.add(group);
         this.saturnCrossRings.push(group);
     },
@@ -298,11 +309,11 @@ const ZoneManager = {
         // Neptune swirl
         this.updateNeptuneSwirl(delta, zoneName === "Neptune", playerPos);
         
-        // Uranus rotating rings
+        // Uranus rotating rings (Swapped update logic)
         const uranusCollision = this.updateUranusRings(delta, playerPos);
         if (uranusCollision) return { type: 'hazard' };
         
-        // Saturn crossing rings
+        // Saturn crossing rings (Swapped update logic)
         const saturnCollision = this.updateSaturnCrossRings(delta, playerPos);
         if (saturnCollision) return { type: 'hazard' };
         
@@ -334,11 +345,16 @@ const ZoneManager = {
     },
     
     updateUranusRings(delta, playerPos) {
+        // SWAPPED: Uses Saturn update logic (side-to-side movement)
         let collision = false;
         
         for (let i = this.uranusRings.length - 1; i >= 0; i--) {
             const ring = this.uranusRings[i];
-            ring.rotation.y += delta * 1.5;
+            
+            // Side to side movement (Saturn style)
+            ring.userData.time = (ring.userData.time || 0) + delta;
+            ring.position.x = Math.sin(ring.userData.time * ring.userData.speed) * 8;
+            ring.rotation.z += delta * 0.5;
             
             // Collision check
             ring.children.forEach(child => {
@@ -360,13 +376,22 @@ const ZoneManager = {
     },
     
     updateSaturnCrossRings(delta, playerPos) {
+        // SWAPPED: Uses Uranus update logic (rotation)
         let collision = false;
         
         for (let i = this.saturnCrossRings.length - 1; i >= 0; i--) {
             const ring = this.saturnCrossRings[i];
-            ring.userData.time = (ring.userData.time || 0) + delta;
-            ring.position.x = Math.sin(ring.userData.time * ring.userData.speed) * 8;
-            ring.rotation.z += delta * 0.5;
+            
+            // Randomized variable rotation
+            let speed = ring.userData.rotSpeed || 1.5;
+            
+            // Apply speed variation to some rings for unpredictability
+            if (ring.userData.varySpeed) {
+                // Modulate speed by ±40% using sine wave
+                speed *= (1 + Math.sin(Date.now() * 0.003 + ring.id) * 0.4);
+            }
+            
+            ring.rotation.y += delta * speed;
             
             // Collision check
             ring.children.forEach(child => {
