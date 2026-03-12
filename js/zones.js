@@ -291,6 +291,13 @@ const ZoneManager = {
         
         group.position.set(0, 0.5, z);
         group.userData.type = 'saturnCrossRing';
+        // Random rotation speed: between 1.2 and 3.7 radians/sec, random direction
+        group.userData.rotSpeed = (1.2 + Math.random() * 2.5) * (Math.random() < 0.5 ? 1 : -1);
+        group.userData.varySpeed = Math.random() > 0.4; // 60% chance to have varying speed
+        
+        // Randomize initial rotation so gaps aren't aligned
+        group.rotation.y = Math.random() * Math.PI * 2;
+        
         this.scene.add(group);
         this.saturnCrossRings.push(group);
     },
@@ -375,8 +382,16 @@ const ZoneManager = {
         for (let i = this.saturnCrossRings.length - 1; i >= 0; i--) {
             const ring = this.saturnCrossRings[i];
             
-            // Constant rotation (Uranus style)
-            ring.rotation.y += delta * 1.5;
+            // Randomized variable rotation
+            let speed = ring.userData.rotSpeed || 1.5;
+            
+            // Apply speed variation to some rings for unpredictability
+            if (ring.userData.varySpeed) {
+                // Modulate speed by ±40% using sine wave
+                speed *= (1 + Math.sin(Date.now() * 0.003 + ring.id) * 0.4);
+            }
+            
+            ring.rotation.y += delta * speed;
             
             // Collision check
             ring.children.forEach(child => {
