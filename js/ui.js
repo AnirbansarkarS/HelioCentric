@@ -607,15 +607,15 @@ const UI = {
     
     showPowerupMessage(type) {
         const names = {
-            shield: '🛡️ SHIELD',
-            darkMatter: '🌑 DARK MATTER',
+            shield: '� +1 LIFE',
+            darkMatter: '🟣 DARK MATTER BOOST',
             gravity: '🌀 GRAVITY STABILIZER',
-            warp: '⚡ WARP DRIVE',
+            warp: '🚪 TELEPORTED!',
             magnet: '🧲 MAGNET FIELD'
         };
         const msg = document.createElement('div');
         msg.className = 'powerup-msg';
-        msg.textContent = (names[type] || type.toUpperCase()) + ' ACTIVATED!';
+        msg.textContent = (names[type] || type.toUpperCase()) + (type === 'shield' || type === 'warp' ? '' : ' ACTIVATED!');
         msg.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);color:#fff;font-size:28px;font-weight:bold;text-shadow:0 0 15px #ff0,0 0 30px #f80;z-index:9999;pointer-events:none;animation:powerupFade 2s forwards;';
         
         if (!document.getElementById('powerup-fade-style')) {

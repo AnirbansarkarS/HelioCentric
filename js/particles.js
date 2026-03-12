@@ -347,6 +347,106 @@ const Particles = {
         
         this.coinParticles.forEach(g => this.scene.remove(g));
         this.coinParticles = [];
+    },
+    
+    // ── WARP TELEPORT EFFECT ──
+    spawnWarpEffect(position) {
+        const count = 50;
+        const group = new THREE.Group();
+        
+        // Create swirling portal particles
+        for (let i = 0; i < count; i++) {
+            const geo = new THREE.SphereGeometry(0.08 + Math.random() * 0.08, 6, 6);
+            const mat = new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.5 ? 0xff44aa : 0xaa00ff,
+                transparent: true,
+                opacity: 1
+            });
+            const particle = new THREE.Mesh(geo, mat);
+            
+            const angle = (i / count) * Math.PI * 2;
+            const radius = 0.5 + Math.random() * 1;
+            particle.position.set(
+                position.x + Math.cos(angle) * radius,
+                position.y + (Math.random() - 0.5) * 2,
+                position.z + Math.sin(angle) * radius
+            );
+            
+            // Spiral outward
+            particle.userData.velocity = new THREE.Vector3(
+                Math.cos(angle) * 5,
+                (Math.random() - 0.5) * 3,
+                Math.sin(angle) * 5
+            );
+            particle.userData.life = 0.8;
+            
+            group.add(particle);
+        }
+        
+        // Flash ring
+        const ringGeo = new THREE.RingGeometry(0.5, 2, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0xff66cc,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.8
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.copy(position);
+        ring.rotation.x = Math.PI / 2;
+        ring.userData.life = 0.5;
+        ring.userData.isRing = true;
+        group.add(ring);
+        
+        group.userData.type = 'warpEffect';
+        this.scene.add(group);
+        this.damageParticles.push(group);
+    },
+    
+    // ── DARK MATTER PHASE EFFECT (When passing through obstacle) ──
+    spawnDarkMatterPhase(position) {
+        const count = 25;
+        const group = new THREE.Group();
+        
+        // Purple/dark particles dispersing
+        for (let i = 0; i < count; i++) {
+            const geo = new THREE.OctahedronGeometry(0.1 + Math.random() * 0.1);
+            const mat = new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.5 ? 0x8800ff : 0x4400aa,
+                transparent: true,
+                opacity: 0.8
+            });
+            const particle = new THREE.Mesh(geo, mat);
+            
+            particle.position.copy(position);
+            particle.userData.velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 6,
+                Math.random() * 4,
+                (Math.random() - 0.5) * 6
+            );
+            particle.userData.life = 0.6;
+            particle.userData.rotSpeed = Math.random() * 5;
+            
+            group.add(particle);
+        }
+        
+        // Dark energy burst ring
+        const burstGeo = new THREE.TorusGeometry(0.8, 0.2, 8, 16);
+        const burstMat = new THREE.MeshBasicMaterial({
+            color: 0xaa44ff,
+            transparent: true,
+            opacity: 0.7
+        });
+        const burst = new THREE.Mesh(burstGeo, burstMat);
+        burst.position.copy(position);
+        burst.rotation.x = Math.PI / 2;
+        burst.userData.life = 0.4;
+        burst.userData.expand = true;
+        group.add(burst);
+        
+        group.userData.type = 'darkMatterPhase';
+        this.scene.add(group);
+        this.damageParticles.push(group);
     }
 };
 

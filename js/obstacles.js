@@ -950,15 +950,19 @@ const Obstacles = {
     spawnPowerup(x, z, powerupType) {
         const group = new THREE.Group();
         
-        // Base diamond shape
+        // Special handling for WARP - create a door/portal shape
+        if (powerupType === 'warp') {
+            return this.spawnWarpPortal(x, z);
+        }
+        
+        // Base diamond shape for other powerups
         const geo = new THREE.DodecahedronGeometry(0.6);
         
         let color, emissive;
         switch(powerupType) {
-            case 'shield': color = 0x4488ff; emissive = 0x1133aa; break;
-            case 'darkMatter': color = 0x110033; emissive = 0x330066; break;
-            case 'gravity': color = 0x44ff44; emissive = 0x11aa11; break;
-            case 'warp': color = 0xff44aa; emissive = 0xaa1166; break;
+            case 'shield': color = 0x44ff44; emissive = 0x11aa11; break; // Green for extra life
+            case 'darkMatter': color = 0x8800ff; emissive = 0x4400aa; break; // Purple for speed+invincibility
+            case 'gravity': color = 0x44ffff; emissive = 0x11aaaa; break;
             case 'magnet': color = 0xff4444; emissive = 0xaa1111; break;
             default: color = 0xffffff; emissive = 0xaaaaaa;
         }
@@ -971,6 +975,16 @@ const Obstacles = {
         });
         const mesh = new THREE.Mesh(geo, mat);
         group.add(mesh);
+        
+        // Shield gets a heart/plus symbol overlay
+        if (powerupType === 'shield') {
+            const plusGeo = new THREE.BoxGeometry(0.15, 0.5, 0.1);
+            const plusMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const plusV = new THREE.Mesh(plusGeo, plusMat);
+            const plusH = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.1), plusMat);
+            group.add(plusV);
+            group.add(plusH);
+        }
         
         // Inner spinning ring
         const ringGeo = new THREE.RingGeometry(0.8, 0.9, 16);
@@ -990,6 +1004,102 @@ const Obstacles = {
         group.userData.powerupType = powerupType;
         group.userData.isCollectible = true;
         group.userData.baseY = 1.5;
+        
+        this.scene.add(group);
+        this.items.push(group);
+        return group;
+    },
+    
+    // ── WARP PORTAL (Door shape - 90 degrees to lane plane) ──
+    spawnWarpPortal(x, z) {
+        const group = new THREE.Group();
+        
+        // Door frame - vertical rectangle
+        const frameGeo = new THREE.BoxGeometry(2.5, 3.5, 0.15);
+        const frameMat = new THREE.MeshPhongMaterial({
+            color: 0xff44aa,
+            emissive: 0x661133,
+            shininess: 100
+        });
+        const frame = new THREE.Mesh(frameGeo, frameMat);
+        frame.position.y = 1.75;
+        group.add(frame);
+        
+        // Inner portal surface (swirling effect)
+        const portalGeo = new THREE.PlaneGeometry(2.2, 3.2);
+        const portalMat = new THREE.MeshBasicMaterial({
+            color: 0xaa00ff,
+            transparent: true,
+            opacity: 0.7,
+            side: THREE.DoubleSide
+        });
+        const portal = new THREE.Mesh(portalGeo, portalMat);
+        portal.position.y = 1.75;
+        portal.position.z = 0.01;
+        group.add(portal);
+        group.userData.portal = portal;
+        
+        // Swirl rings inside portal
+        for (let i = 0; i < 3; i++) {
+            const swirlGeo = new THREE.TorusGeometry(0.4 + i * 0.35, 0.08, 8, 24);
+            const swirlMat = new THREE.MeshBasicMaterial({
+                color: i % 2 === 0 ? 0xff66cc : 0xcc44ff,
+                transparent: true,
+                opacity: 0.6
+            });
+            const swirl = new THREE.Mesh(swirlGeo, swirlMat);
+            swirl.position.y = 1.75;
+            swirl.position.z = 0.02;
+            swirl.userData.swirlSpeed = (i + 1) * 2;
+            swirl.userData.isSwirl = true;
+            group.add(swirl);
+        }
+        
+        // Glow aura around portal
+        const glowGeo = new THREE.PlaneGeometry(3.2, 4.2);
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: 0xff00ff,
+            transparent: true,
+            opacity: 0.25,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending
+        });
+        const glow = new THREE.Mesh(glowGeo, glowMat);
+        glow.position.y = 1.75;
+        glow.position.z = -0.02;
+        group.add(glow);
+        
+        // Edge particles
+        const particleCount = 30;
+        const particleGeo = new THREE.BufferGeometry();
+        const particlePos = new Float32Array(particleCount * 3);
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (i / particleCount) * Math.PI * 2;
+            particlePos[i * 3] = Math.cos(angle) * 1.3;
+            particlePos[i * 3 + 1] = 1.75 + Math.sin(angle) * 1.6;
+            particlePos[i * 3 + 2] = 0;
+        }
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+        const particleMat = new THREE.PointsMaterial({
+            color: 0xff88ff,
+            size: 0.15,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+        const particles = new THREE.Points(particleGeo, particleMat);
+        group.add(particles);
+        group.userData.particles = particles;
+        
+        group.position.set(x, 0, z);
+        // Standing upright, facing the player (portal perpendicular to lane)
+        group.rotation.y = 0; // Facing -Z direction (towards player)
+        
+        group.userData.type = 'powerup';
+        group.userData.powerupType = 'warp';
+        group.userData.isCollectible = true;
+        group.userData.isWarpPortal = true;
+        group.userData.baseY = 0;
         
         this.scene.add(group);
         this.items.push(group);
@@ -1321,8 +1431,33 @@ const Obstacles = {
                 item.userData.ring.rotation.z += delta * 4;
             }
             
-            // Bobbing animation
-            item.position.y = item.userData.baseY + Math.sin(Date.now() * 0.003 + i) * 0.15;
+            // Warp portal special animations
+            if (item.userData.isWarpPortal) {
+                // Don't rotate the whole portal, just the inner swirl rings
+                item.rotation.y = 0; // Keep portal facing player
+                
+                // Animate swirl rings inside the portal
+                item.children.forEach(child => {
+                    if (child.userData && child.userData.isSwirl) {
+                        child.rotation.z += delta * child.userData.swirlSpeed;
+                    }
+                });
+                
+                // Pulsing portal glow
+                if (item.userData.portal) {
+                    item.userData.portal.material.opacity = 0.5 + Math.sin(Date.now() * 0.005) * 0.25;
+                }
+                
+                // Rotate edge particles
+                if (item.userData.particles) {
+                    item.userData.particles.rotation.z += delta * 2;
+                }
+            }
+            
+            // Bobbing animation (skip for warp portal which is grounded)
+            if (!item.userData.isWarpPortal) {
+                item.position.y = item.userData.baseY + Math.sin(Date.now() * 0.003 + i) * 0.15;
+            }
             
             // MAGNET FIELD: Attract all collectibles towards player
             if (GameState.magnetTimer > 0 && item.userData.isCollectible) {

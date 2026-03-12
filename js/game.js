@@ -216,16 +216,18 @@ const Game = {
         const dist = -GameState.ufoZPos;
         const zone = GameState.getCurrentZone();
         const speedMultiplier = zone.speedMultiplier || 1.0;
+        
+        // Dark Matter speed boost (1.5x speed)
+        const darkMatterBoost = GameState.darkMatterTimer > 0 ? CONFIG.DARK_MATTER_SPEED_MULTI : 1.0;
 
         // Update speed with gentle ramp based on distance
-        GameState.currentSpeed = (CONFIG.BASE_SPEED + dist * CONFIG.SPEED_INCREMENT * 0.001) * speedMultiplier;
+        GameState.currentSpeed = (CONFIG.BASE_SPEED + dist * CONFIG.SPEED_INCREMENT * 0.001) * speedMultiplier * darkMatterBoost;
 
         // Score
         GameState.score = Math.floor(dist);
 
         // Update Powerups
         ['shield', 'darkMatter', 'gravity', 'warp', 'magnet'].forEach(p => { if (GameState[p + 'Timer'] > 0) GameState[p + 'Timer'] -= delta; });
-        if (GameState.shieldTimer <= 0) GameState.shieldActive = false;
 
         // Update player (handles forward motion)
         Player.update(delta);
@@ -300,12 +302,31 @@ const Game = {
             Particles.spawnCoinCollect(playerPos);
             
             if (collision.type === 'powerup') {
-                // Activate powerup timer
-                GameState[`${collision.powerupType}Timer`] = CONFIG.POWERUP_DURATION;
-                if (collision.powerupType === 'shield') {
-                    GameState.shieldActive = true;
+                const pType = collision.powerupType;
+                
+                if (pType === 'shield') {
+                    // SHIELD: Gives +1 extra life
+                    GameState.lives++;
+                    UI.updateLives();
+                    UI.showPowerupMessage('shield');
+                } else if (pType === 'darkMatter') {
+                    // DARK MATTER: Speed boost + invincibility
+                    GameState.darkMatterTimer = CONFIG.POWERUP_DURATION;
+                    UI.showPowerupMessage('darkMatter');
+                } else if (pType === 'warp') {
+                    // WARP: Teleport to random different lane
+                    const currentLane = GameState.currentLane;
+                    const availableLanes = [-1, 0, 1].filter(l => l !== currentLane);
+                    const newLane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+                    GameState.currentLane = newLane;
+                    // Instant teleport visual effect
+                    Particles.spawnWarpEffect(playerPos);
+                    UI.showPowerupMessage('warp');
+                } else {
+                    // Other powerups (gravity, magnet) - activate timer
+                    GameState[`${pType}Timer`] = CONFIG.POWERUP_DURATION;
+                    UI.showPowerupMessage(pType);
                 }
-                UI.showPowerupMessage(collision.powerupType);
             } else {
                 // All collectible tiers feed into unified coins
                 GameState.coins += (collision.coinValue || 1);
@@ -320,11 +341,10 @@ const Game = {
                 }
             }
         } else if (collision.type === 'obstacle') {
-            if (GameState.shieldActive) {
-                // Break shield instead of taking damage
-                GameState.shieldActive = false;
-                GameState.shieldTimer = 0;
-                Particles.spawnDamageBurst(playerPos); // shield break particles
+            // Dark Matter makes you immune to obstacles
+            if (GameState.darkMatterTimer > 0) {
+                // Phase through obstacle harmlessly
+                Particles.spawnDarkMatterPhase(playerPos);
             } else {
                 const gameOver = Player.takeDamage();
                 Particles.spawnDamageBurst(playerPos);
@@ -333,12 +353,11 @@ const Game = {
                 }
             }
         } else if (collision.type === 'hazard') {
-            if (GameState.shieldActive) {
-                GameState.shieldActive = false;
-                GameState.shieldTimer = 0;
-                Particles.spawnDamageBurst(playerPos);
+            // Dark Matter also protects from hazards
+            if (GameState.darkMatterTimer > 0) {
+                Particles.spawnDarkMatterPhase(playerPos);
             } else {
-                // Hazards are instant kill unless shielded
+                // Hazards are instant kill
                 GameState.lives = 0;
                 Particles.spawnDamageBurst(playerPos);
                 this.gameOver();
