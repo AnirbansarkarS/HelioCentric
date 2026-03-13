@@ -221,10 +221,13 @@ const Game = {
         const darkMatterBoost = GameState.darkMatterTimer > 0 ? CONFIG.DARK_MATTER_SPEED_MULTI : 1.0;
 
         // Update speed with gentle ramp based on distance
-        GameState.currentSpeed = (CONFIG.BASE_SPEED + dist * CONFIG.SPEED_INCREMENT * 0.001) * speedMultiplier * darkMatterBoost;
+        GameState.currentSpeed = (CONFIG.BASE_SPEED + dist * CONFIG.SPEED_INCREMENT * 0.005) * speedMultiplier * darkMatterBoost;
 
         // Score
         GameState.score = Math.floor(dist);
+
+        // Update Timers
+        if (GameState.sensoryBlindTimer > 0) GameState.sensoryBlindTimer -= delta;
 
         // Update Powerups
         ['shield', 'darkMatter', 'gravity', 'warp', 'magnet'].forEach(p => { if (GameState[p + 'Timer'] > 0) GameState[p + 'Timer'] -= delta; });
@@ -275,6 +278,13 @@ const Game = {
             UI.showCheckpointSaved(currentZone.name);
             UI.showZoneNotification(currentZone.name, currentZone.description);
             Particles.spawnZoneTransition(playerPos, prevZone.objColor, currentZone.objColor);
+        }
+        
+        // Win Condition: Reached the Sun Center (Distance 10000)
+        if (dist >= 10000 && !GameState.isGameOver) {
+            GameState.isVictory = true;
+            this.gameWin();
+            return;
         }
         
         // Update UI
@@ -362,12 +372,27 @@ const Game = {
                 Particles.spawnDamageBurst(playerPos);
                 this.gameOver();
             }
+        } else if (collision.type === 'sensory_hazard') {
+            if (GameState.darkMatterTimer <= 0) {
+                GameState.sensoryBlindTimer = 3.0; // 3 seconds of reduced visibility
+                // Optional message:
+                if (collision.effect === 'acid_blind') {
+                    UI.showPowerupMessage('acid_blind'); // Reusing powerup message UI for warning
+                }
+            }
         }
     },
     
     gameOver() {
         GameState.isGameOver = true;
         UI.showGameOver();
+    },
+    
+    gameWin() {
+        GameState.isGameOver = true;
+        GameState.isVictory = true;
+        SaveSystem.updateHighScore(GameState.score, GameState.coins);
+        UI.showVictory();
     },
     
     onResize() {

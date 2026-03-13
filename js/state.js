@@ -30,6 +30,7 @@ const GameState = {
     // Timers
     invincibleTimer: 0,
     playTime: 0,
+    sensoryBlindTimer: 0, // Used for Venus Acid Cloud Walls or Mars Dust Storms
     
     // Speed
     currentSpeed: CONFIG.BASE_SPEED,
@@ -63,6 +64,7 @@ const GameState = {
         this.ufoVelocityY = 0;
         this.invincibleTimer = 0;
         this.playTime = 0;
+        this.sensoryBlindTimer = 0;
         this.currentSpeed = CONFIG.BASE_SPEED;
         this.nextObstacleZ = -30;
     },

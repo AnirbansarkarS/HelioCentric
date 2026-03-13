@@ -113,7 +113,7 @@ const ZONES = [
         distance: 5000,
         bgColor: 0x330500,
         objColor: 0xff3300,
-        fogDensity: 0.014,
+        fogDensity: 0.045,  // Increased from 0.014 to simulate dust challenge
         ambientIntensity: 0.65,
         speedMultiplier: 1.3,
         description: "Red Planet - Dust Storms"
@@ -133,7 +133,7 @@ const ZONES = [
         distance: 7000,
         bgColor: 0x443311,
         objColor: 0xffcc44,
-        fogDensity: 0.022,
+        fogDensity: 0.040,  // Increased from 0.022 for Acid fog
         ambientIntensity: 0.75,
         speedMultiplier: 1.4,
         description: "Hellscape - Toxic Atmosphere"

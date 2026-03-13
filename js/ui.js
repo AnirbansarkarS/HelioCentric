@@ -18,6 +18,7 @@ const UI = {
         this.createMenuOverlay();
         this.createHUD();
         this.createGameOverOverlay();
+        this.createVictoryOverlay();
         this.createPauseOverlay();
     },
     
@@ -607,15 +608,16 @@ const UI = {
     
     showPowerupMessage(type) {
         const names = {
-            shield: '� +1 LIFE',
+            shield: '🛡️ +1 LIFE',
             darkMatter: '🟣 DARK MATTER BOOST',
             gravity: '🌀 GRAVITY STABILIZER',
             warp: '🚪 TELEPORTED!',
-            magnet: '🧲 MAGNET FIELD'
+            magnet: '🧲 MAGNET FIELD',
+            acid_blind: '⚠️ VISIBILITY COMPROMISED!'
         };
         const msg = document.createElement('div');
         msg.className = 'powerup-msg';
-        msg.textContent = (names[type] || type.toUpperCase()) + (type === 'shield' || type === 'warp' ? '' : ' ACTIVATED!');
+        msg.textContent = (names[type] || type.toUpperCase()) + (type === 'shield' || type === 'warp' || type === 'acid_blind' ? '' : ' ACTIVATED!');
         msg.style.cssText = 'position:fixed;top:20%;left:50%;transform:translateX(-50%);color:#fff;font-size:28px;font-weight:bold;text-shadow:0 0 15px #ff0,0 0 30px #f80;z-index:9999;pointer-events:none;animation:powerupFade 2s forwards;';
         
         if (!document.getElementById('powerup-fade-style')) {
@@ -714,6 +716,58 @@ const UI = {
     
     hideGameOver() {
         this.gameoverOverlay.style.display = 'none';
+    },
+
+    // ══════════════════════════════════════════════════════════
+    //  VICTORY
+    // ══════════════════════════════════════════════════════════
+    createVictoryOverlay() {
+        this.victoryOverlay = document.createElement('div');
+        this.victoryOverlay.id = 'victory-overlay';
+        this.victoryOverlay.innerHTML = `
+            <div class="gameover-container">
+                <h1 class="gameover-title" style="color: #ffff00; text-shadow: 0 0 20px #ff8800;">YOU REACHED THE SUN!</h1>
+                <p style="font-size: 1.5rem; color: #ffebcc; margin-bottom: 20px;">The journey is complete!</p>
+                <div class="gameover-stats">
+                    <p>Final Score: <span id="vic-score">0</span></p>
+                    <p>Total Coins: <span id="vic-coins">0</span> 🪙</p>
+                </div>
+                <div class="gameover-btns">
+                    <button class="menu-btn primary" id="btn-vic-menu">
+                        <span class="btn-icon">🌟</span>
+                        <span class="btn-text">Back to Menu</span>
+                    </button>
+                </div>
+            </div>
+        `;
+        // Use same styling class as game over overlay for layout
+        this.victoryOverlay.className = this.gameoverOverlay.className;
+        this.victoryOverlay.style.cssText = this.gameoverOverlay.style.cssText;
+        this.container.appendChild(this.victoryOverlay);
+        
+        document.getElementById('btn-vic-menu').addEventListener('click', () => {
+            this.hideVictory();
+            this.showMenu();
+        });
+    },
+
+    showVictory() {
+        document.getElementById('vic-score').textContent = GameState.score;
+        document.getElementById('vic-coins').textContent = GameState.coins;
+        
+        // Ensure UI is styled like game over
+        this.victoryOverlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 100, 0, 0.4); backdrop-filter: blur(8px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000; font-family: 'Segoe UI', Arial, sans-serif;
+        `;
+        
+        this.victoryOverlay.style.display = 'flex';
+    },
+    
+    hideVictory() {
+        if(this.victoryOverlay) this.victoryOverlay.style.display = 'none';
     },
     
     // ══════════════════════════════════════════════════════════

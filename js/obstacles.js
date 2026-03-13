@@ -309,9 +309,13 @@ const Obstacles = {
             case 'Saturn':
                 return this.spawnStandardObstacle(lane, z, 0xddaa55);
             case 'Jupiter':
-                return this.spawnStandardObstacle(lane, z, 0xffaa88, 1.0 + Math.random() * 0.4);
+                return Math.random() < 0.5 ?
+                    this.spawnStandardObstacle(lane, z, 0xffaa88, 1.0 + Math.random() * 0.4) :
+                    this.spawnJupiterStorm(lane, z);
             case 'Mars':
-                return this.spawnStandardObstacle(lane, z, 0xff3300);
+                return Math.random() < 0.4 ?
+                    this.spawnFallingRock(lane, z) :
+                    this.spawnStandardObstacle(lane, z, 0xff3300);
             case 'Earth':
                 return Math.random() < 0.5 ? 
                     this.spawnStandardObstacle(lane, z, 0x888888) :
@@ -331,8 +335,14 @@ const Obstacles = {
     spawnZoneHazard(zoneName, lane, z) {
         switch (zoneName) {
             case 'Venus':
-                return Math.random() < 0.5 ? 
-                    this.spawnAcidCloud(lane, z) : this.spawnHazard(lane, z);
+                return Math.random() < 0.6 ? 
+                    this.spawnAcidCloudWall(lane, z) : this.spawnHazard(lane, z);
+            case 'Jupiter':
+                return Math.random() < 0.5 ?
+                    this.spawnJupiterStormHazard(lane, z) : this.spawnHazard(lane, z);
+            case 'Mars':
+                return Math.random() < 0.5 ?
+                    this.spawnDustStormHazard(lane, z) : this.spawnHazard(lane, z);
             case 'Sun':
                 return Math.random() < 0.5 ? 
                     this.spawnSolarFlareHazard(lane, z) : this.spawnHazard(lane, z);
@@ -1347,6 +1357,184 @@ const Obstacles = {
         return group;
     },
     
+    // ── JUPITER STORM / LIGHTNING (Obstacle) ──
+    spawnJupiterStorm(lane, z) {
+        const group = new THREE.Group();
+        
+        // Swirling storm cloud mass
+        const cloudGeo = new THREE.DodecahedronGeometry(1.5, 1);
+        const cloudMat = new THREE.MeshPhongMaterial({
+            color: 0xffcc99,
+            transparent: true,
+            opacity: 0.8,
+            flatShading: true
+        });
+        const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+        group.add(cloud);
+        
+        // Inner lightning core (bright)
+        const coreGeo = new THREE.OctahedronGeometry(0.8);
+        const coreMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.9
+        });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        group.add(core);
+        
+        group.position.set(lane * CONFIG.LANE_WIDTH, 1.0, z);
+        group.userData.type = 'obstacle';
+        group.userData.isJupiterStorm = true;
+        group.userData.core = core;
+        group.userData.rotSpeed = { x: 0.2, y: 0.8 };
+        
+        this.scene.add(group);
+        this.obstacles.push(group);
+        return group;
+    },
+
+    // ── JUPITER STORM HAZARD (Hazard) ──
+    spawnJupiterStormHazard(lane, z) {
+        const group = new THREE.Group();
+        // Spans 2 lanes
+        let lane1 = lane;
+        let lane2 = (lane === -1) ? 0 : (lane === 1) ? 0 : (Math.random() < 0.5 ? -1 : 1);
+        const centerX = (lane1 + lane2) * CONFIG.LANE_WIDTH / 2;
+
+        const count = 100;
+        const geo = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+            positions[i*3] = (Math.random() - 0.5) * 6;
+            positions[i*3+1] = (Math.random() - 0.5) * 6;
+            positions[i*3+2] = (Math.random() - 0.5) * 3;
+        }
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const mat = new THREE.PointsMaterial({ color: 0xffaa55, size: 0.8, transparent: true, opacity: 0.7 });
+        const storm = new THREE.Points(geo, mat);
+        group.add(storm);
+
+        // Warning sign
+        const warnGeo = new THREE.TorusGeometry(3.0, 0.1, 8, 32);
+        const warnMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.5 });
+        const warnRing = new THREE.Mesh(warnGeo, warnMat);
+        warnRing.rotation.x = Math.PI / 2;
+        group.add(warnRing);
+
+        group.position.set(centerX, 1, z);
+        group.userData.type = 'hazard';
+        group.userData.occupiedLanes = [lane1, lane2];
+        group.userData.isJupiterStorm = true;
+        group.userData.storm = storm;
+        
+        this.scene.add(group);
+        this.hazards.push(group);
+        return group;
+    },
+
+    // ── FALLING ROCK (Mars Obstacle) ──
+    spawnFallingRock(lane, z) {
+        const group = new THREE.Group();
+        const geo = this.createAsteroidGeo(1.0);
+        const mat = new THREE.MeshPhongMaterial({ color: 0xff3300, flatShading: true });
+        const rock = new THREE.Mesh(geo, mat);
+        group.add(rock);
+        
+        // Start high up
+        group.position.set(lane * CONFIG.LANE_WIDTH, 20, z);
+        group.userData.type = 'obstacle';
+        group.userData.isFalling = false; // Triggered when player approaches
+        group.userData.velocityY = 0;
+        group.userData.targetY = 0.5;
+        group.userData.rotSpeed = { x: 0.5, y: 0.5 };
+        
+        this.scene.add(group);
+        this.obstacles.push(group);
+        return group;
+    },
+
+    // ── ACID CLOUD WALL (Venus Hazard) ──
+    // Reduces visibility if player passes through/near
+    spawnAcidCloudWall(lane, z) {
+        const group = new THREE.Group();
+        let lane1 = lane;
+        let lane2 = (lane === -1) ? 0 : (lane === 1) ? 0 : (Math.random() < 0.5 ? -1 : 1);
+        const centerX = (lane1 + lane2) * CONFIG.LANE_WIDTH / 2;
+
+        const count = 150;
+        const geo = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+        const sizes = new Float32Array(count);
+        for (let i = 0; i < count; i++) {
+            positions[i*3] = (Math.random() - 0.5) * 7;
+            positions[i*3+1] = (Math.random() - 0.5) * 4 + 1;
+            positions[i*3+2] = (Math.random() - 0.5) * 2;
+            sizes[i] = 0.5 + Math.random() * 0.8;
+        }
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const mat = new THREE.PointsMaterial({
+            color: 0xccff00, size: 0.9, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending
+        });
+        const cloud = new THREE.Points(geo, mat);
+        group.add(cloud);
+
+        // Ground warning area
+        const warnGeo = new THREE.PlaneGeometry(6, 3);
+        const warnMat = new THREE.MeshBasicMaterial({ color: 0x88ff00, transparent: true, opacity: 0.3 });
+        const warn = new THREE.Mesh(warnGeo, warnMat);
+        warn.rotation.x = -Math.PI / 2;
+        warn.position.y = -0.5;
+        group.add(warn);
+
+        group.position.set(centerX, 0.5, z);
+        group.userData.type = 'sensory_hazard';
+        group.userData.effect = 'acid_blind';
+        group.userData.occupiedLanes = [lane1, lane2];
+        group.userData.isAcidWall = true;
+        group.userData.cloud = cloud;
+        
+        this.scene.add(group);
+        this.hazards.push(group);
+        return group;
+    },
+
+    // ── DUST STORM (Mars Hazard) ──
+    spawnDustStormHazard(lane, z) {
+        const group = new THREE.Group();
+        let lane1 = lane;
+        let lane2 = (lane === -1) ? 0 : (lane === 1) ? 0 : (Math.random() < 0.5 ? -1 : 1);
+        const centerX = (lane1 + lane2) * CONFIG.LANE_WIDTH / 2;
+
+        const count = 120;
+        const geo = new THREE.BufferGeometry();
+        const positions = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+            positions[i*3] = (Math.random() - 0.5) * 6;
+            positions[i*3+1] = (Math.random() - 0.5) * 5;
+            positions[i*3+2] = (Math.random() - 0.5) * 3;
+        }
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const mat = new THREE.PointsMaterial({ color: 0xff4411, size: 1.0, transparent: true, opacity: 0.6 });
+        const storm = new THREE.Points(geo, mat);
+        group.add(storm);
+
+        const warnGeo = new THREE.RingGeometry(2.5, 3.2, 32);
+        const warnMat = new THREE.MeshBasicMaterial({ color: 0xff3300, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+        const warnRing = new THREE.Mesh(warnGeo, warnMat);
+        warnRing.rotation.x = Math.PI / 2;
+        group.add(warnRing);
+
+        group.position.set(centerX, 0.5, z);
+        group.userData.type = 'hazard';
+        group.userData.occupiedLanes = [lane1, lane2];
+        group.userData.isDustStorm = true;
+        group.userData.storm = storm;
+        
+        this.scene.add(group);
+        this.hazards.push(group);
+        return group;
+    },
+    
     // ── UPDATE ──
     update(delta, playerPos) {
         // Update regular obstacles
@@ -1357,6 +1545,27 @@ const Obstacles = {
             if (obs.userData.rotSpeed) {
                 obs.rotation.x += obs.userData.rotSpeed.x * delta;
                 obs.rotation.y += obs.userData.rotSpeed.y * delta;
+            }
+
+            // Falling Rock animation
+            if (obs.position.y > 0.5 && !obs.userData.isJupiterStorm) {
+                const triggerDist = 40 + (GameState.currentSpeed || 20) * 0.5;
+                if (!obs.userData.isFalling && Math.abs(obs.position.z - playerPos.z) < triggerDist) {
+                    obs.userData.isFalling = true;
+                }
+                
+                if (obs.userData.isFalling) {
+                    obs.userData.velocityY -= 40 * delta; // Gravity
+                    obs.position.y += obs.userData.velocityY * delta;
+                    if (obs.position.y <= obs.userData.targetY) {
+                        obs.position.y = obs.userData.targetY;
+                    }
+                }
+            }
+
+            // Jupiter storm animations
+            if (obs.userData.isJupiterStorm && obs.userData.core) {
+                obs.userData.core.material.opacity = 0.5 + Math.sin(Date.now() * 0.02) * 0.5; // Flash
             }
             
             // Heat rock effects
@@ -1401,16 +1610,19 @@ const Obstacles = {
                 
                 // If player is in one of the black hole's lanes and close in Z
                 if (haz.userData.occupiedLanes.includes(playerLane) && zDistance < 3) {
+                    const hType = haz.userData.type || 'hazard';
+                    const hEffect = haz.userData.effect;
                     this.scene.remove(haz);
                     this.hazards.splice(i, 1);
-                    return { type: 'hazard' };
+                    return { type: hType, effect: hEffect };
                 }
             } else {
                 // Fallback for old-style hazards
                 if (this.checkCollision(haz, playerPos, 1.8)) {
+                    const hType = haz.userData.type || 'hazard';
                     this.scene.remove(haz);
                     this.hazards.splice(i, 1);
-                    return { type: 'hazard' };
+                    return { type: hType };
                 }
             }
             

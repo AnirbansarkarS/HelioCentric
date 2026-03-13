@@ -389,7 +389,18 @@ const Environment = {
         this.scene.background = bgColor;
         
         // Update fog density
-        this.scene.fog.density = zone.fogDensity + (nextZone.fogDensity - zone.fogDensity) * t;
+        let targetFogDensity = zone.fogDensity + (nextZone.fogDensity - zone.fogDensity) * t;
+        if (GameState.sensoryBlindTimer && GameState.sensoryBlindTimer > 0) {
+            targetFogDensity = 0.15; // Visibly thicker fog for the "blindness" challenge
+            // Also shift fog color more towards toxic green/orange if applicable
+            this.scene.fog.color.lerp(new THREE.Color(0x88aa22), 0.5);
+        }
+        
+        if (this.scene.fog.density !== undefined) {
+             this.scene.fog.density += (targetFogDensity - this.scene.fog.density) * delta * 2.0;
+        } else {
+             this.scene.fog.density = targetFogDensity;
+        }
         
         // Update ambient light intensity
         if (this.ambientLight) {
