@@ -416,6 +416,140 @@
         .fade-in:nth-child(2) { animation-delay: 0.4s; }
         .fade-in:nth-child(3) { animation-delay: 0.6s; }
         .fade-in:nth-child(4) { animation-delay: 0.8s; }
+        
+        /* Guide Sections */
+        .guide-section {
+            margin: 80px 0;
+        }
+        
+        .guide-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 40px;
+        }
+        
+        .guide-card {
+            background: linear-gradient(135deg, rgba(10, 50, 100, 0.3), rgba(100, 10, 50, 0.2));
+            border: 2px solid rgba(0, 200, 255, 0.3);
+            border-radius: 15px;
+            padding: 30px 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .guide-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .guide-card:hover::before {
+            left: 100%;
+        }
+        
+        .guide-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(0, 255, 255, 0.6);
+            box-shadow: 0 12px 40px rgba(0, 255, 255, 0.25);
+        }
+        
+        .guide-icon {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 0 8px currentColor);
+        }
+        
+        .guide-name {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #00ffff;
+            margin-bottom: 12px;
+        }
+        
+        .guide-type {
+            font-size: 0.85rem;
+            color: #ffaa00;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        
+        .guide-desc {
+            font-size: 1rem;
+            color: #cccccc;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        
+        .guide-effect {
+            background: rgba(0, 100, 150, 0.2);
+            border-left: 3px solid #00ffff;
+            padding: 10px 12px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            color: #bbddff;
+            margin-top: 10px;
+        }
+        
+        .power-up-bonus {
+            background: rgba(255, 170, 0, 0.2);
+            border-left: 3px solid #ffaa00;
+            padding: 10px 12px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            color: #ffd699;
+            margin-top: 10px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .tab-btn {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            padding: 12px 30px;
+            border: 2px solid rgba(0, 255, 255, 0.4);
+            background: transparent;
+            color: #00ffff;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+        
+        .tab-btn:hover, .tab-btn.active {
+            border-color: rgba(0, 255, 255, 0.8);
+            background: rgba(0, 255, 255, 0.15);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -485,6 +619,223 @@
                 <p class="feature-desc">
                     Face rotating asteroid rings, massive black holes, solar debris, and zone-specific cosmic hazards.
                 </p>
+            </div>
+        </div>
+        
+        <!-- Game Guide Section -->
+        <div class="guide-section">
+            <h2 class="section-title">Master the Obstacles & Power-ups</h2>
+            
+            <!-- Tab Navigation -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="obstacles">🪨 Obstacles</button>
+                <button class="tab-btn" data-tab="hazards">⚠️ Hazards</button>
+                <button class="tab-btn" data-tab="powerups">⚡ Power-ups</button>
+                <button class="tab-btn" data-tab="collectibles">💎 Collectibles</button>
+            </div>
+            
+            <!-- OBSTACLES TAB -->
+            <div id="obstacles" class="tab-content active">
+                <div class="guide-grid">
+                    <div class="guide-card">
+                        <div class="guide-icon">🪨</div>
+                        <div class="guide-name">Standard Asteroid</div>
+                        <div class="guide-type">Common Obstacle</div>
+                        <div class="guide-desc">Rotating flying rocks that block your path. Dodge by switching lanes or jumping.</div>
+                        <div class="guide-effect">⚠️ Collision = Damage</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">❄️</div>
+                        <div class="guide-name">Icy Asteroid (Pluto)</div>
+                        <div class="guide-type">Zone-Specific</div>
+                        <div class="guide-desc">Frozen space rocks with crystalline formations. Appears in the Pluto zone with increased frequency.</div>
+                        <div class="guide-effect">⚠️ Extra slippery appearance</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🛰️</div>
+                        <div class="guide-name">Satellite Debris (Earth)</div>
+                        <div class="guide-type">Zone-Specific</div>
+                        <div class="guide-desc">Wreckage from Earth orbit—solar panels and metallic fragments spinning dangerously.</div>
+                        <div class="guide-effect">⚠️ Angular and unpredictable</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🔥</div>
+                        <div class="guide-name">Heat Rock (Mercury)</div>
+                        <div class="guide-type">Zone-Specific</div>
+                        <div class="guide-desc">Molten glowing rocks from Mercury's surface with heat distortion effects.</div>
+                        <div class="guide-effect">💫 Emits heat particles</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">☀️</div>
+                        <div class="guide-name">Solar Debris (Sun)</div>
+                        <div class="guide-type">Zone-Specific</div>
+                        <div class="guide-desc">Scorching fragments ejected from the Sun's surface with intense glow effects.</div>
+                        <div class="guide-effect">💥 Most dangerous zone</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">⛈️</div>
+                        <div class="guide-name">Jupiter Storm</div>
+                        <div class="guide-type">Zone-Specific</div>
+                        <div class="guide-desc">Massive rotating storm cells with violent winds and internal lightning bolts. Spans a lane.</div>
+                        <div class="guide-effect">⚡ Flashing core hazard</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🪨💨</div>
+                        <div class="guide-name">Falling Rock (Mars)</div>
+                        <div class="guide-type">Zone-Specific</div>
+                        <div class="guide-desc">Rocks suspended in the Martian sky that suddenly fall when you approach. Timing is key!</div>
+                        <div class="guide-effect">💡 Trigger descent nearby</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- HAZARDS TAB -->
+            <div id="hazards" class="tab-content">
+                <div class="guide-grid">
+                    <div class="guide-card">
+                        <div class="guide-icon">⚫</div>
+                        <div class="guide-name">Black Hole</div>
+                        <div class="guide-type">Instant Death Hazard</div>
+                        <div class="guide-desc">Spans TWO adjacent lanes with massive event horizon. One touch = instant game over. No Dark Matter protection.</div>
+                        <div class="guide-effect">💀 AUTO-KILL (even invincible)</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">☁️</div>
+                        <div class="guide-name">Acid Cloud Wall (Venus)</div>
+                        <div class="guide-type">Sensory Hazard</div>
+                        <div class="guide-desc">Dense toxic atmosphere that obscures vision. Collision triggers 3 seconds of blinding fog.</div>
+                        <div class="guide-effect">🌫️ Reduced visibility for 3s</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">💨</div>
+                        <div class="guide-name">Dust Storm (Mars)</div>
+                        <div class="guide-type">Sensory Hazard</div>
+                        <div class="guide-desc">A swirling Martian dust storm that reduces your view distance briefly when hit.</div>
+                        <div class="guide-effect">🌪️ Temporary blindness effect</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">✨</div>
+                        <div class="guide-name">Solar Flare (Sun)</div>
+                        <div class="guide-type">Instant Death Hazard</div>
+                        <div class="guide-desc">Violent energy bursts from the Sun's corona. Touch = instant termination. No escape.</div>
+                        <div class="guide-effect">💀 AUTO-KILL instantly</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">⛈️💨</div>
+                        <div class="guide-name">Jupiter Storm Hazard</div>
+                        <div class="guide-type">Instant Death Hazard</div>
+                        <div class="guide-desc">Spans two lanes with chaotic lightning patterns. Instant kill if touched. Dark Matter bypasses.</div>
+                        <div class="guide-effect">⚡ AUTO-KILL (Dark Matter safe)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- POWER-UPS TAB -->
+            <div id="powerups" class="tab-content">
+                <div class="guide-grid">
+                    <div class="guide-card">
+                        <div class="guide-icon">🛡️</div>
+                        <div class="guide-name">Shield</div>
+                        <div class="guide-type">Extra Life</div>
+                        <div class="guide-desc">Grants one extra life. Collect this to increase your maximum health from 3 to 4 lives.</div>
+                        <div class="power-up-bonus">⭐ +1 Life Permanent</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🟣</div>
+                        <div class="guide-name">Dark Matter Boost</div>
+                        <div class="guide-type">Time-Limited (10s)</div>
+                        <div class="guide-desc">Invulnerability! Become immune to obstacles. Speed multiplier increased 1.5x. Also bypasses instant-kill hazards.</div>
+                        <div class="power-up-bonus">🚀 Speed +50%, No damage taken</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🌀</div>
+                        <div class="guide-name">Gravity Stabilizer</div>
+                        <div class="guide-type">Time-Limited (10s)</div>
+                        <div class="guide-desc">Flatten gravity! Jump 1.5x higher and farther. Reach obstacles platforms you normally can't. Stays active for 10 seconds.</div>
+                        <div class="power-up-bonus">⬆️ Jump Force x1.5, Float feeling</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🚪</div>
+                        <div class="guide-name">Warp Portal</div>
+                        <div class="guide-type">Instant Teleport</div>
+                        <div class="guide-desc">Instantly teleports you to a random lane. Useful for escaping tight situations with obstacles.</div>
+                        <div class="power-up-bonus">➡️ Random lane teleport</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🧲</div>
+                        <div class="guide-name">Magnet Field</div>
+                        <div class="guide-type">Time-Limited (10s)</div>
+                        <div class="guide-desc">Attract all nearby collectibles toward you automatically. Grab items without direct collision!</div>
+                        <div class="power-up-bonus">🎯 Auto-collect nearby items</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- COLLECTIBLES TAB -->
+            <div id="collectibles" class="tab-content">
+                <div class="guide-grid">
+                    <div class="guide-card">
+                        <div class="guide-icon">⭐</div>
+                        <div class="guide-name">Star Fragment</div>
+                        <div class="guide-type">Common Collectible</div>
+                        <div class="guide-desc">Glowing stellar dust. Most common collectible found in lines across the safe lane.</div>
+                        <div class="guide-effect">💰 1 coin | 5 points (62% spawn)</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🟣</div>
+                        <div class="guide-name">Dark Matter Shard</div>
+                        <div class="guide-type">Rare Collectible</div>
+                        <div class="guide-desc">Mysterious dark matter clusters. Spawn in dark clusters floating above your path.</div>
+                        <div class="guide-effect">💰 5 coins | 25 points (18% spawn)</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🌠</div>
+                        <div class="guide-name">Comet Crystal</div>
+                        <div class="guide-type">Uncommon Collectible</div>
+                        <div class="guide-desc">Fragments from passing comets. Found in diagonal trails across lanes. Less common now!</div>
+                        <div class="guide-effect">💰 3 coins | 15 points (8% spawn)</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🛸</div>
+                        <div class="guide-name">Alien Tech Part</div>
+                        <div class="guide-type">Very Rare</div>
+                        <div class="guide-desc">Advanced alien technology. Guarded between obstacle lanes—risky to collect but rewarding!</div>
+                        <div class="guide-effect">💰 10 coins | 50 points (10% spawn)</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">☀️</div>
+                        <div class="guide-name">Solar Energy Cell</div>
+                        <div class="guide-type">Rare (Mercury/Sun only)</div>
+                        <div class="guide-desc">Pure solar energy condensed. Exclusive to Mercury and Sun zones. Extremely valuable!</div>
+                        <div class="guide-effect">💰 15 coins | 75 points (rare)</div>
+                    </div>
+                    
+                    <div class="guide-card">
+                        <div class="guide-icon">🪐</div>
+                        <div class="guide-name">Planet Relic</div>
+                        <div class="guide-type">Legendary Rare</div>
+                        <div class="guide-desc">Ancient planetary fragments. Drops extremely rarely at difficulty > 0.3. Ultra-valuable treasure!</div>
+                        <div class="guide-effect">💰 50 coins | 250 points (ultra-rare)</div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -558,6 +909,24 @@
         document.querySelectorAll('.fade-in').forEach(el => {
             el.style.animationPlayState = 'paused';
             observer.observe(el);
+        });
+        
+        // Tab functionality
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabName = button.getAttribute('data-tab');
+                
+                // Remove active class from all buttons and contents
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                // Add active class to clicked button and corresponding content
+                button.classList.add('active');
+                document.getElementById(tabName).classList.add('active');
+            });
         });
     </script>
 </body>
