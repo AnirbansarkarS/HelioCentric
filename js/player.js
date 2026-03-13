@@ -99,7 +99,9 @@ const Player = {
         // Jumping
         if (GameState.isJumping) {
             this.group.position.y += GameState.ufoVelocityY * delta;
-            GameState.ufoVelocityY += CONFIG.GRAVITY * delta;
+            const gravityMultiplier = GameState.gravityTimer > 0 ? CONFIG.GRAVITY_LIFT : 1;
+            const effectiveGravity = CONFIG.GRAVITY / gravityMultiplier;
+            GameState.ufoVelocityY += effectiveGravity * delta;
             
             if (this.group.position.y <= CONFIG.UFO_BASE_Y) {
                 this.group.position.y = CONFIG.UFO_BASE_Y;
@@ -171,7 +173,8 @@ const Player = {
     jump() {
         if (!GameState.isJumping && !GameState.isGameOver) {
             GameState.isJumping = true;
-            GameState.ufoVelocityY = CONFIG.JUMP_FORCE;
+            const jumpMultiplier = GameState.gravityTimer > 0 ? CONFIG.GRAVITY_LIFT : 1;
+            GameState.ufoVelocityY = CONFIG.JUMP_FORCE * jumpMultiplier;
         }
     },
     

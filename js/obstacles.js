@@ -267,7 +267,7 @@ const Obstacles = {
                 }
             }
             // Comet Crystal: diagonal trail across lanes (3-5 crystals)
-            else if (rand < 0.50) {
+            else if (rand < 0.40) {
                 const trailLen = 3 + Math.floor(Math.random() * 3); // 3-5
                 const startLane = safeLane;
                 const direction = (startLane <= 0) ? 1 : -1; // move towards open lanes
