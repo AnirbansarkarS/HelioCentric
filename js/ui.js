@@ -362,25 +362,33 @@ const UI = {
             }
             
             .hud-pause-btn {
-                background: rgba(0, 0, 0, 0.5);
-                border: none;
+                background: linear-gradient(135deg, rgba(68, 136, 255, 0.8), rgba(0, 200, 255, 0.8));
+                border: 2px solid rgba(0, 255, 255, 0.6);
                 border-radius: 50%;
                 color: white;
                 font-size: 1.5rem;
-                width: 45px;
-                height: 45px;
+                width: 55px;
+                height: 55px;
                 display: flex;
                 justify-content: center;
                 align-items: center;
                 cursor: pointer;
                 backdrop-filter: blur(10px);
-                transition: transform 0.2s, background 0.2s;
+                transition: all 0.2s ease;
                 margin-right: 15px;
+                box-shadow: 0 0 20px rgba(0, 255, 255, 0.4), inset 0 0 10px rgba(255, 255, 255, 0.2);
+                font-weight: bold;
             }
             
-            .hud-pause-btn:hover {
-                transform: scale(1.1);
-                background: rgba(255, 255, 255, 0.2);
+            .hud-pause-btn:hover, .hud-pause-btn:active {
+                transform: scale(1.15);
+                background: linear-gradient(135deg, rgba(0, 255, 255, 0.9), rgba(0, 150, 255, 0.9));
+                box-shadow: 0 0 30px rgba(0, 255, 255, 0.8), inset 0 0 15px rgba(255, 255, 255, 0.3);
+                border-color: rgba(0, 255, 255, 0.9);
+            }
+            
+            .hud-pause-btn:touch-action {
+                touch-action: manipulation;
             }
             
             /* HUD Mobile Responsive */
@@ -388,17 +396,19 @@ const UI = {
                 .hud-top {
                     padding: 10px;
                     flex-wrap: wrap;
-                }\n                
+                }
+                
                 .hud-stat {
                     font-size: 0.9rem;
                     padding: 6px 12px;
                 }
                 
                 .hud-pause-btn {
-                    width: 38px;
-                    height: 38px;
-                    font-size: 1.2rem;
+                    width: 50px;
+                    height: 50px;
+                    font-size: 1.3rem;
                     margin-right: 8px;
+                    min-touch-target-size: 48px;
                 }
                 
                 .life-icon {
@@ -421,8 +431,8 @@ const UI = {
                 }
                 
                 .hud-pause-btn {
-                    width: 35px;
-                    height: 35px;
+                    width: 48px;
+                    height: 48px;
                     font-size: 1.1rem;
                     margin-right: 5px;
                 }
@@ -503,11 +513,44 @@ const UI = {
                 margin-bottom: 30px;
             }
             
+            .pause-container {
+                max-height: 90vh;
+                overflow-y: auto;
+                max-width: 800px;
+                background: rgba(0, 20, 40, 0.95);
+                border: 2px solid rgba(0, 255, 255, 0.3);
+                border-radius: 20px;
+                padding: 40px 30px;
+            }
+            
+            .pause-instructions {
+                text-align: left;
+                margin: 20px 0;
+                background: rgba(0, 50, 100, 0.3);
+                border-left: 3px solid #00ffff;
+                padding: 15px 20px;
+                border-radius: 8px;
+                font-size: 0.95rem;
+                color: #cccccc;
+                line-height: 1.6;
+            }
+            
+            .pause-control {
+                background: rgba(100, 0, 100, 0.2);
+                border-left: 3px solid #ffaa00;
+                padding: 12px 15px;
+                border-radius: 6px;
+                margin: 10px 0;
+                font-size: 0.9rem;
+                color: #ffc699;
+            }
+            
             /* Game Over & Pause Mobile Responsive */
             @media (max-width: 768px) {
                 .gameover-container, .pause-container {
                     padding: 20px;
-                    max-width: 90vw;
+                    max-width: 95vw;
+                    max-height: 85vh;
                 }
                 
                 .gameover-title, .pause-title {
@@ -535,10 +578,21 @@ const UI = {
             @media (max-width: 480px) {
                 .gameover-title, .pause-title {
                     font-size: 1.5rem;
+                    margin-bottom: 15px;
                 }
                 
                 .gameover-stats {
                     font-size: 1rem;
+                }
+                
+                .pause-container {
+                    padding: 20px 15px;
+                    border-radius: 15px;
+                }
+                
+                .pause-instructions, .pause-control {
+                    font-size: 0.85rem;
+                    padding: 10px 12px;
                 }
             }
         `;
@@ -777,14 +831,38 @@ const UI = {
         this.pauseOverlay = document.createElement('div');
         this.pauseOverlay.id = 'pause-overlay';
         this.pauseOverlay.innerHTML = `
-            <div class="pause-container" style="text-align: center; color: white;">
-                <h1 class="pause-title">PAUSED</h1>
-                <div class="gameover-btns">
-                    <button class="menu-btn primary" id="btn-resume">
+            <div class="pause-container">
+                <h1 class="pause-title">⏸️ PAUSED</h1>
+                
+                <div class="pause-instructions">
+                    <strong>🎮 GAME CONTROLS</strong>
+                    <div class="pause-control">← → or A/D : Change lanes</div>
+                    <div class="pause-control">Space or W↑ : Jump</div>
+                    <div class="pause-control">P or 📱 Button : Pause/Resume</div>
+                </div>
+                
+                <div class="pause-instructions">
+                    <strong>⚠️ DANGER ZONES</strong>
+                    ⭕ Black Holes (AUTO-KILL) | ⚡ Solar Flares (AUTO-KILL) | 💨 Jupiter Storms (AUTO-KILL with Dark Matter immunity)<br>
+                    ☁️ Acid Clouds (3sec blindness) | 🌪️ Dust Storms (visibility reduction)
+                </div>
+                
+                <div class="pause-instructions">
+                    <strong>⚡ POWER-UPS (10s duration)</strong>
+                    🛡️ Shield: +1 Life | 🟣 Dark Matter: Speed↑+Invincible+hazard bypass | 🌀 Gravity: Jump x1.5 | 🚪 Warp: Random lane teleport | 🧲 Magnet: Auto-collect nearby items
+                </div>
+                
+                <div class="pause-instructions">
+                    <strong>💎 COLLECTIBLES</strong>
+                    ⭐ Star (1 coin) | 🟣 Dark Matter (5 coins) | 🌠 Comet (3 coins) | 🛸 Alien Tech (10 coins) | ☀️ Solar Cell (15 coins) | 🪐 Planet Relic (50 coins-ultra rare!)
+                </div>
+                
+                <div class="gameover-btns" style="margin-top: 25px; gap: 15px;">
+                    <button class="menu-btn primary" id="btn-resume" style="flex: 1; min-height: 50px; font-size: 1.1rem; touch-action: manipulation;">
                         <span class="btn-icon">▶️</span>
-                        <span class="btn-text">Resume</span>
+                        <span class="btn-text">Resume Game</span>
                     </button>
-                    <button class="menu-btn" id="btn-pause-menu" style="background: #333;">
+                    <button class="menu-btn" id="btn-pause-menu" style="flex: 1; background: #333; min-height: 50px; font-size: 1.1rem; touch-action: manipulation;">
                         <span class="btn-icon">🏠</span>
                         <span class="btn-text">Main Menu</span>
                     </button>
