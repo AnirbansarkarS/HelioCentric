@@ -130,12 +130,28 @@ const GameState = {
 const SaveSystem = {
     // Get all saves
     getSaves() {
+        const base = {
+            checkpoints: [],
+            highScore: 0,
+            totalCoins: 0,
+            wallet: 0,
+            ownedVehicles: []
+        };
         try {
             const data = localStorage.getItem(CONFIG.SAVE_KEY);
-            return data ? JSON.parse(data) : { checkpoints: [], highScore: 0, totalCoins: 0 };
+            if (!data) return base;
+            const parsed = JSON.parse(data);
+            return {
+                ...base,
+                ...parsed,
+                wallet: typeof parsed.wallet === 'number'
+                    ? parsed.wallet
+                    : (typeof parsed.totalCoins === 'number' ? parsed.totalCoins : 0),
+                ownedVehicles: Array.isArray(parsed.ownedVehicles) ? parsed.ownedVehicles : []
+            };
         } catch (e) {
             console.error('Failed to parse saves', e);
-            return { checkpoints: [], highScore: 0, totalCoins: 0 };
+            return base;
         }
     },
     
@@ -163,7 +179,12 @@ const SaveSystem = {
             if (score > saves.highScore) {
                 saves.highScore = score;
             }
-            saves.totalCoins = (saves.totalCoins || 0) + coins;
+            const earned = Math.max(0, Number(coins) || 0);
+            const currentWallet = typeof saves.wallet === 'number'
+                ? saves.wallet
+                : (saves.totalCoins || 0);
+            saves.totalCoins = (saves.totalCoins || 0) + earned;
+            saves.wallet = currentWallet + earned;
             localStorage.setItem(CONFIG.SAVE_KEY, JSON.stringify(saves));
             return true;
         } catch (e) {
