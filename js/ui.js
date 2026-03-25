@@ -318,7 +318,6 @@ const UI = {
                 position: fixed;
                 top: 0; left: 0;
                 width: 100%; height: 100%;
-                pointer-events: none;
                 z-index: 100;
                 font-family: 'Segoe UI', Arial, sans-serif;
             }
@@ -378,6 +377,8 @@ const UI = {
                 margin-right: 15px;
                 box-shadow: 0 0 20px rgba(0, 255, 255, 0.4), inset 0 0 10px rgba(255, 255, 255, 0.2);
                 font-weight: bold;
+                pointer-events: auto;
+                touch-action: manipulation;
             }
             
             .hud-pause-btn:hover, .hud-pause-btn:active {
@@ -387,9 +388,7 @@ const UI = {
                 border-color: rgba(0, 255, 255, 0.9);
             }
             
-            .hud-pause-btn:touch-action {
-                touch-action: manipulation;
-            }
+            
             
             /* HUD Mobile Responsive */
             @media (max-width: 768px) {
