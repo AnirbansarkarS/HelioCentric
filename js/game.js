@@ -120,38 +120,57 @@ const Game = {
     setupTouchControls() {
         let touchStartX = 0;
         let touchStartY = 0;
-        let touchEndX = 0;
-        let touchEndY = 0;
-        const minSwipeDistance = 30;
-        
-        document.addEventListener('touchstart', (e) => {
-            touchStartX = e.changedTouches[0].screenX;
-            touchStartY = e.changedTouches[0].screenY;
-        }, { passive: true });
-        
-        document.addEventListener('touchend', (e) => {
-            if (GameState.isGameOver || GameState.isPaused) return;
-            
-            touchEndX = e.changedTouches[0].screenX;
-            touchEndY = e.changedTouches[0].screenY;
-            
-            const deltaX = touchEndX - touchStartX;
-            const deltaY = touchEndY - touchStartY;
+        let swipeHandled = false;
+        const minSwipeDistance = 25;
+
+        const handleSwipe = (deltaX, deltaY) => {
+            if (GameState.isGameOver || GameState.isPaused) return false;
+
             const absDeltaX = Math.abs(deltaX);
             const absDeltaY = Math.abs(deltaY);
-            
-            // Horizontal swipe (lane change)
+
             if (absDeltaX > absDeltaY && absDeltaX > minSwipeDistance) {
                 if (deltaX > 0) {
                     Player.moveRight();
                 } else {
                     Player.moveLeft();
                 }
+                return true;
             }
-            // Vertical swipe up (jump)
-            else if (absDeltaY > absDeltaX && deltaY < -minSwipeDistance) {
+
+            if (absDeltaY > absDeltaX && deltaY < -minSwipeDistance) {
                 Player.jump();
+                return true;
             }
+
+            return false;
+        };
+        
+        document.addEventListener('touchstart', (e) => {
+            const touch = e.changedTouches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            swipeHandled = false;
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            if (swipeHandled) return;
+            const touch = e.changedTouches[0];
+            const deltaX = touch.clientX - touchStartX;
+            const deltaY = touch.clientY - touchStartY;
+
+            if (handleSwipe(deltaX, deltaY)) {
+                swipeHandled = true;
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchend', (e) => {
+            if (swipeHandled) return;
+            const touch = e.changedTouches[0];
+            const deltaX = touch.clientX - touchStartX;
+            const deltaY = touch.clientY - touchStartY;
+            handleSwipe(deltaX, deltaY);
         }, { passive: true });
     },
     
