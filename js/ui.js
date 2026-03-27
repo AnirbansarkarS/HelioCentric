@@ -357,7 +357,16 @@ const UI = {
             }
             
             .hud-zone {
-                text-align: right;
+                text-align: center;
+                position: fixed;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: transparent;
+                border: none;
+                backdrop-filter: none;
+                pointer-events: none;
+                opacity: 0.8;
             }
             
             .hud-pause-btn {
