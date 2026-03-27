@@ -906,23 +906,49 @@ const UI = {
     showZoneNotification(zoneName, description) {
         const notif = document.createElement('div');
         notif.className = 'zone-notification';
+        
+        // Fetch interactive planetary fact from internet API
+        let factStr = "";
+        
         notif.innerHTML = `
             <h2>Entering ${zoneName}</h2>
             <p>${description || ''}</p>
+            <p class="planet-fact" style="font-size:0.8em; color:#aaa; margin-top:5px; font-style:italic;">Loading database...</p>
         `;
+        
+        // Try getting a fact about the planet via wikipedia summary
+        fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${zoneName}`)
+            .then(res => res.json())
+            .then(data => {
+                let fact = data.extract;
+                if(fact) {
+                    fact = fact.split('.')[0] + "."; // get first sentence
+                    if(notif.querySelector('.planet-fact')) {
+                        notif.querySelector('.planet-fact').textContent = "Did you know? " + fact;
+                    }
+                }
+            }).catch(e => {
+                if(notif.querySelector('.planet-fact')) {
+                    notif.querySelector('.planet-fact').textContent = "";
+                }
+            });
+
         notif.style.cssText = `
             position: fixed;
-            top: 50%;
+            top: 20%;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translate(-50%, 0);
             background: rgba(0, 0, 0, 0.8);
             color: white;
-            padding: 30px 50px;
+            padding: 20px 40px;
             border-radius: 15px;
             text-align: center;
             z-index: 300;
-            animation: zoneNotifAnim 2s forwards;
+            animation: zoneNotifAnim 5s forwards; /* Increased duration to read facts */
             font-family: 'Segoe UI', Arial, sans-serif;
+            pointer-events: none;
+            max-width: 80%;
+            box-shadow: 0px 4px 15px rgba(0, 255, 255, 0.2);
         `;
         
         if (!document.getElementById('zone-notif-style')) {
@@ -930,10 +956,10 @@ const UI = {
             style.id = 'zone-notif-style';
             style.textContent = `
                 @keyframes zoneNotifAnim {
-                    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-                    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.1); }
+                    0% { opacity: 0; transform: translate(-50%, -20px) scale(0.9); }
+                    10% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+                    90% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+                    100% { opacity: 0; transform: translate(-50%, -30px) scale(0.9); }
                 }
             `;
             document.head.appendChild(style);
@@ -942,8 +968,8 @@ const UI = {
         this.container.appendChild(notif);
         
         setTimeout(() => {
-            notif.remove();
-        }, 2000);
+            if(notif.parentNode) notif.remove();
+        }, 5000); // Wait 5s before removal to allow reading of the fact
     },
     
     showCheckpointSaved(zoneName) {
