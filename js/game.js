@@ -175,10 +175,20 @@ const Game = {
     },
     
     startGame(checkpoint) {
+        // Init audio system on user interaction
+        if (window.AudioSystem) {
+            AudioSystem.init();
+        }
+
         // Determine starting zone index
         const startZoneIndex = checkpoint && typeof checkpoint.zoneIndex === 'number'
             ? checkpoint.zoneIndex
             : 0;
+
+        // Play zone music
+        if (window.AudioSystem) {
+            AudioSystem.playMusicForZone(startZoneIndex);
+        }
 
         // Reset and start from zone
         GameState.startFromZone(startZoneIndex);
@@ -297,6 +307,10 @@ const Game = {
             UI.showCheckpointSaved(currentZone.name);
             UI.showZoneNotification(currentZone.name, currentZone.description);
             Particles.spawnZoneTransition(playerPos, prevZone.objColor, currentZone.objColor);
+            
+            if (window.AudioSystem) {
+                AudioSystem.playMusicForZone(GameState.currentZoneIndex);
+            }
         }
         
         // Win Condition: Reached the Sun Center (Distance 10000)
@@ -329,6 +343,10 @@ const Game = {
     handleCollision(collision, playerPos) {
         if (collision.isCollectible) {
             Particles.spawnCoinCollect(playerPos);
+            
+            if (window.AudioSystem) {
+                AudioSystem.playStarCollect(collision.coinValue || 1);
+            }
             
             if (collision.type === 'powerup') {
                 const pType = collision.powerupType;
@@ -379,6 +397,8 @@ const Game = {
                 Particles.spawnDamageBurst(playerPos);
                 if (gameOver) {
                     this.gameOver();
+                } else if (window.AudioSystem) {
+                    AudioSystem.playDamage();
                 }
             }
         } else if (collision.type === 'hazard') {
@@ -404,12 +424,20 @@ const Game = {
     
     gameOver() {
         GameState.isGameOver = true;
+        if (window.AudioSystem) {
+            AudioSystem.stopMusic();
+            AudioSystem.playCollapse();
+        }
         UI.showGameOver();
     },
     
     gameWin() {
         GameState.isGameOver = true;
         GameState.isVictory = true;
+        if (window.AudioSystem) {
+            AudioSystem.stopMusic();
+            AudioSystem.playStarCollect(5); // Play a winning sound
+        }
         SaveSystem.updateHighScore(GameState.score, GameState.coins);
         UI.showVictory();
     },
