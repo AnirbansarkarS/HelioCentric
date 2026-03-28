@@ -26,7 +26,7 @@ const AudioSystem = {
             this.masterGain.connect(this.ctx.destination);
             
             this.musicGain = this.ctx.createGain();
-            this.musicGain.gain.value = 0.5;
+            this.musicGain.gain.value = 0.3;
             this.musicGain.connect(this.masterGain);
             
             this.sfxGain = this.ctx.createGain();

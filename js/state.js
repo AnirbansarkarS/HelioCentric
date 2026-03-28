@@ -207,6 +207,15 @@ const SaveSystem = {
             highScore: saves.highScore || 0
         }));
     },
+
+    getLatestCheckpoint() {
+        const checkpoints = this.getUnlockedCheckpoints();
+        if (checkpoints.length === 0) {
+            return null;
+        }
+        // The checkpoints are sorted by zoneIndex, so the last one is the latest
+        return checkpoints[checkpoints.length - 1];
+    },
     
     // Clear all saves
     clearSaves() {

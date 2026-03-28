@@ -295,6 +295,18 @@ const UI = {
                 display: none;
             }
             
+            .checkpoint-section {
+                margin-top: 20px;
+                padding: 15px;
+                max-width: 90vw;
+                max-height: 35vh; /* Set a max height */
+                overflow-y: auto; /* Allow scrolling */
+            }
+
+            .checkpoint-list {
+                padding-right: 10px; /* Add some padding for the scrollbar */
+            }
+            
             @media (max-width: 768px), (pointer: coarse) {
                 .desktop-controls {
                     display: none;
@@ -865,10 +877,14 @@ const UI = {
                     ⭐ Star (1 coin) | 🟣 Dark Matter (5 coins) | 🌠 Comet (3 coins) | 🛸 Alien Tech (10 coins) | ☀️ Solar Cell (15 coins) | 🪐 Planet Relic (50 coins-ultra rare!)
                 </div>
                 
-                <div class="gameover-btns" style="margin-top: 25px; gap: 15px;">
+                <div class="gameover-btns" style="margin-top: 25px; gap: 15px; flex-wrap: wrap;">
                     <button class="menu-btn primary" id="btn-resume" style="flex: 1; min-height: 50px; font-size: 1.1rem; touch-action: manipulation;">
                         <span class="btn-icon">▶️</span>
                         <span class="btn-text">Resume Game</span>
+                    </button>
+                     <button class="menu-btn" id="btn-restart-checkpoint" style="flex: 1; background: #ff8c00; min-height: 50px; font-size: 1.1rem; touch-action: manipulation;">
+                        <span class="btn-icon">🔄</span>
+                        <span class="btn-text">Restart from Checkpoint</span>
                     </button>
                     <button class="menu-btn" id="btn-pause-menu" style="flex: 1; background: #333; min-height: 50px; font-size: 1.1rem; touch-action: manipulation;">
                         <span class="btn-icon">🏠</span>
@@ -882,6 +898,18 @@ const UI = {
         document.getElementById('btn-resume').addEventListener('click', () => {
             this.hidePause();
             GameState.isPaused = false;
+        });
+
+        document.getElementById('btn-restart-checkpoint').addEventListener('click', () => {
+            this.hidePause();
+            this.hideHUD();
+            const lastCheckpoint = SaveSystem.getLatestCheckpoint();
+            if (this.onResumeCheckpoint && lastCheckpoint) {
+                this.onResumeCheckpoint(lastCheckpoint);
+            } else {
+                // Fallback to new game if no checkpoint
+                if (this.onStartGame) this.onStartGame(null);
+            }
         });
         
         document.getElementById('btn-pause-menu').addEventListener('click', () => {
@@ -907,31 +935,10 @@ const UI = {
         const notif = document.createElement('div');
         notif.className = 'zone-notification';
         
-        // Fetch interactive planetary fact from internet API
-        let factStr = "";
-        
         notif.innerHTML = `
             <h2>Entering ${zoneName}</h2>
             <p>${description || ''}</p>
-            <p class="planet-fact" style="font-size:0.8em; color:#aaa; margin-top:5px; font-style:italic;">Loading database...</p>
         `;
-        
-        // Try getting a fact about the planet via wikipedia summary
-        fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${zoneName}`)
-            .then(res => res.json())
-            .then(data => {
-                let fact = data.extract;
-                if(fact) {
-                    fact = fact.split('.')[0] + "."; // get first sentence
-                    if(notif.querySelector('.planet-fact')) {
-                        notif.querySelector('.planet-fact').textContent = "Did you know? " + fact;
-                    }
-                }
-            }).catch(e => {
-                if(notif.querySelector('.planet-fact')) {
-                    notif.querySelector('.planet-fact').textContent = "";
-                }
-            });
 
         notif.style.cssText = `
             position: fixed;
