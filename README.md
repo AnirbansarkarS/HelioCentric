@@ -1,6 +1,7 @@
 # HelioCentric
 
 
+
 An runner style space trek built with Three.js. Pilot a neon UFO from the Kuiper Belt all the way to the Sun, threading through procedurally generated asteroid fields, collecting exotic space loot, and surviving each planet's unique hazards.
 
 ## Gameplay Overview
